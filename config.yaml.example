@@ -1,0 +1,49 @@
+# Cleo configuration
+# Copy to config.yaml and fill in your values: cp config.yaml.example config.yaml
+
+# Your bot's Signal phone number (registered with signal-cli)
+bot_number: '+1XXXXXXXXXX'
+
+# Workspace directory for memory, identity files, and private configs
+# Default: ~/.cleo/workspace
+workspace: '~/.cleo/workspace'
+
+# Anthropic model to use
+model: 'claude-sonnet-4-5'
+
+# Your timezone (IANA format)
+timezone: 'America/New_York'
+
+# Extra path prefixes allowed for read_file/write_file/edit_file
+# (your home directory is always allowed automatically)
+# Example: ['/mnt/storage/', '/opt/media/']
+allowed_paths: []
+
+# Phone numbers or UUIDs allowed to message the bot directly
+authorized_senders:
+  - '+1XXXXXXXXXX'
+
+# Signal group IDs where the bot listens
+# Get these from: signal-cli -a +1XXXXXXXXXX listGroups
+# Group members also get DM access automatically
+authorized_groups: []
+
+# Scheduled tasks (optional)
+# Each heartbeat fires at the specified cron time and injects the prompt
+# as if it were a message, triggering a full tool-use cycle.
+heartbeats: {}
+  # Example:
+  #
+  # morning-briefing:
+  #   cron: "0 7 * * 1-5"        # Weekdays at 7am
+  #   timezone: America/New_York  # Defaults to top-level timezone if omitted
+  #   prompt: |
+  #     Good morning. Check the weather, review TODOs, and summarize
+  #     anything notable from yesterday.
+  #
+  # dream:
+  #   cron: "0 2 * * *"          # Daily at 2am
+  #   prompt: |
+  #     Memory consolidation. Read yesterday's daily memory file.
+  #     Distill key events and information into memory/summaries/.
+  #     Then re-index the vector store.

@@ -1,0 +1,17 @@
+# USER.md
+
+Information about the bot's owner. Cleo loads this into every prompt.
+
+## About You
+
+- **Name:** Your Name
+- **Location:** City, State
+- **Timezone:** America/New_York
+
+## Family / Household
+
+People Cleo might interact with or hear about.
+
+## Preferences
+
+Things Cleo should know about how you like to communicate.

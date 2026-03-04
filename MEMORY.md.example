@@ -1,0 +1,13 @@
+# MEMORY.md
+
+Curated long-term knowledge. Cleo loads this into every prompt.
+Keep it concise — this costs tokens on every message.
+
+## Signal
+
+- Bot number: +1XXXXXXXXXX
+- Formatting: `**bold**`, `_italic_`, `||spoiler||`, `~strikethrough~`, `` `mono` ``
+
+## Notes
+
+Add facts, preferences, and context Cleo should always remember here.

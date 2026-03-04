@@ -1,0 +1,39 @@
+# Secrets
+.env
+
+# Real config (ship config.yaml.example, not this)
+config.yaml
+
+# Private data
+private/
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# Memory data (lives in workspace, not repo)
+memory/
+
+# IDE
+.vscode/
+.idea/
+
+# Prompt file (local scratch)
+PROMPT.md
+*.swp
+*.backup
+*.bak*
+*.backup-*
+
+# Rotated logs
+*.log.*
+
+# Planning docs (local scratch)
+CONTEXT_REDESIGN_PLAN.md
