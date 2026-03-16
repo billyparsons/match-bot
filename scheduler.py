@@ -24,7 +24,7 @@ def start_scheduler(config: dict, event_callback, token_refresh_callback=None) -
     Called when a scheduled event fires. The callback injects the event
     as a feed, triggering a wake cycle.
     """
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(job_defaults={'misfire_grace_time': 3600})
 
     # Create a job for each heartbeat definition
     for name, hb in config.get("heartbeats", {}).items():

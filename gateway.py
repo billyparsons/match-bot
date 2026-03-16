@@ -70,7 +70,7 @@ feeds: dict[str, dict] = {}
 
 unread_feed_ids: set[str] = set()
 
-MAX_FEED_MESSAGES = 500  # max messages retained per feed
+MAX_FEED_MESSAGES = 6  # max messages retained per feed
 FEEDS_FILE = os.path.join(CONFIG["workspace"], "feeds.json")
 CONSCIOUSNESS_FILE = os.path.join(CONFIG["workspace"], "consciousness.json")
 CONTEXT_DUMP_FILE = os.path.join(CONFIG["workspace"], "context-dump.json")
@@ -108,9 +108,14 @@ def _load_feeds() -> None:
 
 
 
+MAX_CONSCIOUSNESS_MESSAGES = 20
+
 def _save_consciousness() -> None:
     """Persist consciousness to disk (atomic write)."""
     try:
+        # Hard cap: keep only recent messages
+        if len(consciousness) > MAX_CONSCIOUSNESS_MESSAGES:
+            consciousness[:] = consciousness[-MAX_CONSCIOUSNESS_MESSAGES:]
         data = {"messages": consciousness, "last_input_tokens": _last_input_tokens}
         tmp = CONSCIOUSNESS_FILE + ".tmp"
         with open(tmp, "w") as f:
@@ -351,7 +356,7 @@ MAX_TOKENS = 16384  # max output tokens per API call
 _last_input_tokens: int = 0  # updated after each successful API call
 
 # --- Subagent constants ---
-MAX_SUBAGENT_ITERATIONS = 100
+MAX_SUBAGENT_ITERATIONS = 50
 MAX_CONCURRENT_SUBAGENTS = 3  # per person
 active_subagents: dict[str, list[asyncio.Task]] = defaultdict(list)
 
@@ -492,7 +497,7 @@ def get_feed_id(sender_id: str, group_id: str | None) -> str:
     """
     Derive a feed ID from sender/group.
     Groups → group name ("bots", "Alexandria").
-    DMs → sender phone number ("+13045043270").
+    DMs → sender phone number ("+16142080533").
     """
     if group_id:
         return get_group_name(group_id)
@@ -555,7 +560,7 @@ def _load_attachment_base64(att_id: str, content_type: str) -> dict | None:
     }
 
 
-def tool_read_feed(feed_name: str, count: int = 50) -> str | list:
+def tool_read_feed(feed_name: str, count: int = 10) -> str | list:
     """Read recent messages from a specific feed."""
     feed = feeds.get(feed_name)
     if not feed:
@@ -668,7 +673,7 @@ _WAKE_SEND_MESSAGE_DEF = {
     "name": "send_message",
     "description": (
         "Send a Signal message to a feed. Use a group name ('bots', 'Alexandria') "
-        "for group messages, or a phone number (e.g. '+13045043270') for DMs. "
+        "for group messages, or a phone number (e.g. '+16142080533') for DMs. "
         "Supports Markdown formatting: **bold**, *italic*, _italic_, ~~strikethrough~~, ||spoiler||, `monospace`. "
         "To quote-reply to a specific message, provide quote_timestamp and quote_author "
         "from the read_feed output (the ts: value and sender field)."
@@ -678,7 +683,7 @@ _WAKE_SEND_MESSAGE_DEF = {
         "properties": {
             "recipient": {
                 "type": "string",
-                "description": "Feed to send to: group name ('bots', 'Alexandria') or phone number for DMs (e.g. '+13045043270').",
+                "description": "Feed to send to: group name ('bots', 'Alexandria') or phone number for DMs (e.g. '+16142080533').",
             },
             "message": {
                 "type": "string",
@@ -816,12 +821,12 @@ _FEED_TOOL_DEFINITIONS = [
             "properties": {
                 "feed": {
                     "type": "string",
-                    "description": "Feed name: group name (e.g. 'bots', 'Alexandria') or phone number for DMs (e.g. '+13045043270').",
+                    "description": "Feed name: group name (e.g. 'bots', 'Alexandria') or phone number for DMs (e.g. '+16142080533').",
                 },
                 "count": {
                     "type": "integer",
                     "description": "Max messages to return (default: 50).",
-                    "default": 50,
+                    "default": 10,
                 },
             },
             "required": ["feed"],
@@ -856,7 +861,7 @@ WAKE_TOOL_DEFINITIONS = [
 # Wake tool dispatch: feed tools + route_send_message, delegate others to execute_tool
 WAKE_TOOL_DISPATCH = {
     "check_feeds": lambda args: tool_check_feeds(),
-    "read_feed": lambda args: tool_read_feed(args["feed"], args.get("count", 50)),
+    "read_feed": lambda args: tool_read_feed(args["feed"], args.get("count", 10)),
     "send_message": lambda args: route_send_message(args["recipient"], args["message"], attachment=args.get("attachment"), quote_timestamp=args.get("quote_timestamp"), quote_author=args.get("quote_author")),
     "send_reaction": lambda args: route_send_reaction(args["emoji"], args["target_author"], args["target_timestamp"], args["recipient"]),
     "send_poll": lambda args: route_send_poll(args["recipient"], args["question"], args["options"], args.get("allow_multiple", True)),
@@ -1115,6 +1120,11 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     async with consciousness_lock:
         if unread_feed_ids:
             await wake_loop()
+    # After dream, reset consciousness in code (not relying on Match to do it)
+    if event_name == "dream":
+        consciousness.clear()
+        _save_consciousness()
+        log.info("Dream complete: consciousness reset to empty")
 
 
 # --- Debounce mechanism ---
@@ -1173,6 +1183,12 @@ def _trim_feeds(processed_ids: set[str]) -> None:
             if len(feeds[fid]["messages"]) > MAX_FEED_MESSAGES:
                 feeds[fid]["messages"] = feeds[fid]["messages"][-MAX_FEED_MESSAGES:]
             feeds[fid]["unread_count"] = 0
+    # Purge stale one-shot system threads
+    stale = [fid for fid in list(feeds.keys())
+             if any(fid.startswith(p) for p in ("subagent:", "scheduled:"))
+             and feeds[fid].get("unread_count", 0) == 0]
+    for fid in stale:
+        del feeds[fid]
     _save_feeds()
 
 
@@ -1229,7 +1245,7 @@ async def wake_loop() -> None:
         if not feed or not feed["messages"]:
             continue
         unread = feed.get("unread_count", len(feed["messages"]))
-        read_count = min(unread + 5, len(feed["messages"]))
+        read_count = min(unread + 2, len(feed["messages"]))
         tool_id = f"prefetch_{i}"
         prefetch_assistant.append({
             "type": "tool_use", "id": tool_id,
@@ -1611,6 +1627,7 @@ async def handle_signal_message(envelope: dict) -> None:
     group_id = get_group_id(envelope)
 
     if not is_authorized(sender_id, group_id, CONFIG):
+        log.warning("UNAUTHORIZED sender: %s", sender_id)
         return
 
     if not check_message_age(envelope):
@@ -1888,6 +1905,7 @@ async def tcp_listener() -> None:
                     continue
 
                 # JSON-RPC notification for received messages
+                log.warning("TCP DATA: %s", str(data)[:200])
                 if data.get("method") == "receive":
                     params = data.get("params", {})
                     envelope = params.get("envelope")

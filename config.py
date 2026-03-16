@@ -91,6 +91,10 @@ def _read_credentials() -> tuple[str, float]:
 
 
 def load_credentials() -> str:
+    import os
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        return api_key
     """
     Load the OAuth access token from ~/.claude/.credentials.json.
 

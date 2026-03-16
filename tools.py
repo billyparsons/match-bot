@@ -182,53 +182,6 @@ TOOL_DEFINITIONS = [
         },
     },
     {
-        "name": "search_torrents",
-        "description": "Search IPTorrents for movies/TV shows. Returns list of torrents with metadata (name, size, seeders, quality indicators). NO filtering or auto-selection — you decide what to download. Use list_torrents first to check what's already downloading.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search query (movie/show name, episode identifier)."},
-                "media_type": {"type": "string", "enum": ["movie", "tv"], "description": "Type of media (default: movie).", "default": "movie"},
-                "max_results": {"type": "integer", "description": "Maximum results to return (default: 10).", "default": 10},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "download_torrent",
-        "description": "Add a specific torrent to Transmission by ID. NO duplicate checking — you must verify against list_torrents first. Takes torrent_id and filename from search_torrents results.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "torrent_id": {"type": "string", "description": "Torrent ID from search_torrents results."},
-                "filename": {"type": "string", "description": "Torrent filename from search_torrents results."},
-                "destination": {"type": "string", "enum": ["movie", "tv"], "description": "Download destination directory."},
-            },
-            "required": ["torrent_id", "filename", "destination"],
-        },
-    },
-    {
-        "name": "download_media",
-        "description": "[DEPRECATED - Use search_torrents + download_torrent instead] Search for and download movies/TV shows via IPTorrents → Transmission. Handles duplicates, quality filtering (prefers 1080p/4K x265).",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Movie or TV show name to search for."},
-                "media_type": {"type": "string", "enum": ["movie", "tv"], "description": "Type of media (default: movie).", "default": "movie"},
-                "index": {"type": "integer", "description": "Result index to pick (default: 0 = best match).", "default": 0},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "list_torrents",
-        "description": "List all torrents in Transmission with their status, progress, and download directory.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
         "name": "check_sms",
         "description": "Check recent incoming SMS messages on the Twilio number. Use when you need to retrieve a verification code or check for incoming texts.",
         "input_schema": {
@@ -267,21 +220,6 @@ TOOL_DEFINITIONS = [
         },
     },
     {
-        "name": "vote_poll",
-        "description": "Vote on an existing Signal poll. Requires poll author and timestamp.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "recipient": {"type": "string", "description": "Phone number (DM) or group recipient."},
-                "poll_author": {"type": "string", "description": "Phone number or UUID of who created the poll."},
-                "poll_timestamp": {"type": "integer", "description": "Signal timestamp of the poll create message."},
-                "option_indexes": {"type": "array", "items": {"type": "integer"}, "description": "0-based indexes of options to vote for."},
-                "vote_count": {"type": "integer", "description": "Vote number (1 for first vote, increment for re-votes). Default: 1.", "default": 1},
-            },
-            "required": ["recipient", "poll_author", "poll_timestamp", "option_indexes"],
-        },
-    },
-    {
         "name": "generate_image",
         "description": "Generate an image from a text prompt using Gemini. Returns a file path to the generated PNG. Use send_message with the attachment parameter to send it.",
         "input_schema": {
@@ -304,18 +242,6 @@ TOOL_DEFINITIONS = [
         },
     },
     {
-        "name": "generate_voice",
-        "description": "Generate a voice audio message from text using Inworld TTS. Returns a file path to the OGG audio file. Use send_message with the attachment parameter to send it. Available voices: Alex, Ashley, Craig, Deborah, Dennis, Dominus, Edward, Elizabeth, Hades, Heitor, Julia, Maitê, Mark, Olivia, Pixie, Priya, Ronald, Sarah, Shaun, Theodore, Timothy, Wendy.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "text": {"type": "string", "description": "The text to convert to speech."},
-                "voice": {"type": "string", "description": "Voice name to use (optional, defaults to config)."},
-            },
-            "required": ["text"],
-        },
-    },
-    {
         "name": "schedule_reminder",
         "description": "Schedule a one-time reminder. When the time arrives, you'll be woken up with the prompt text as a feed event. Use this for reminders, follow-ups, or any delayed action.",
         "input_schema": {
@@ -331,18 +257,6 @@ TOOL_DEFINITIONS = [
                 },
             },
             "required": ["fire_at", "prompt"],
-        },
-    },
-    {
-        "name": "read_daily_log",
-        "description": "Read a raw daily log. WARNING: These are extremely verbose firehose dumps — full message content, reasoning traces, tool calls and results. For large logs, use offset and max_chars to read in chunks. Prefer reading feeds or querying vector memory instead for most lookups.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "date": {"type": "string", "description": "Date to read, format YYYY-MM-DD. Defaults to today."},
-                "offset": {"type": "integer", "description": "Character offset to start reading from. Default 0."},
-                "max_chars": {"type": "integer", "description": "Maximum characters to return. Default 50000."},
-            },
         },
     },
     {
@@ -370,8 +284,8 @@ TOOL_DEFINITIONS = [
                 },
                 "model": {
                     "type": "string",
-                    "enum": ["claude-sonnet-4-6", "claude-opus-4-6"],
-                    "description": "Model for the subagent. Default is your own model (Sonnet 4.6). Use claude-opus-4-6 only for particularly complex tasks requiring deep reasoning — it costs significantly more.",
+                    "enum": ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"],
+                    "description": "Model for the subagent. Default is your own model (Sonnet 4.6). Use claude-opus-4-6 only for particularly complex tasks requiring deep reasoning — it costs significantly more. Use claude-haiku-4-5 for simple, fast, cheap tasks like quick lookups or file writes.",
                 },
                 "soul": {
                     "type": "string",
@@ -380,45 +294,6 @@ TOOL_DEFINITIONS = [
                 },
             },
             "required": ["task"],
-        },
-    },
-    {
-        "name": "emby_admin",
-        "description": (
-            "Emby media server admin (movies/TV). Actions: "
-            "list_users, create_user(name), set_password(user_id, password), delete_user(user_id), "
-            "list_libraries, scan_library, sessions, server_info, activity_log(limit)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "action": {"type": "string", "description": "Action to perform."},
-                "name": {"type": "string", "description": "Username (for create_user)."},
-                "user_id": {"type": "string", "description": "User ID (for set_password, delete_user)."},
-                "password": {"type": "string", "description": "Password (for set_password)."},
-                "limit": {"type": "integer", "description": "Max results (for activity_log).", "default": 20},
-            },
-            "required": ["action"],
-        },
-    },
-    {
-        "name": "audiobookshelf_admin",
-        "description": (
-            "Audiobookshelf admin (audiobooks/podcasts). Actions: "
-            "list_users, create_user(name, password), delete_user(user_id), "
-            "list_libraries, scan_library(library_id), sessions, server_info, "
-            "listening_stats(user_id)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "action": {"type": "string", "description": "Action to perform."},
-                "name": {"type": "string", "description": "Username (for create_user)."},
-                "password": {"type": "string", "description": "Password (for create_user)."},
-                "user_id": {"type": "string", "description": "User ID (for delete_user, listening_stats)."},
-                "library_id": {"type": "string", "description": "Library ID (for scan_library)."},
-            },
-            "required": ["action"],
         },
     },
     {
@@ -434,7 +309,7 @@ TOOL_DEFINITIONS = [
 
 
 # Tools excluded from subagent use (no recursion, no messaging, no admin)
-_SUBAGENT_EXCLUDED_TOOLS = {"delegate_task", "send_message", "send_reaction", "send_poll", "vote_poll", "generate_image", "generate_voice", "schedule_reminder", "download_media", "search_torrents", "download_torrent", "list_torrents", "emby_admin", "audiobookshelf_admin", "check_quota"}
+_SUBAGENT_EXCLUDED_TOOLS = {"delegate_task", "send_message", "send_reaction", "send_poll", "generate_image", "schedule_reminder", "check_quota"}
 
 SUBAGENT_TOOL_DEFINITIONS = [
     t for t in TOOL_DEFINITIONS if t["name"] not in _SUBAGENT_EXCLUDED_TOOLS
@@ -838,8 +713,8 @@ def web_fetch(url: str) -> str:
         text = re.sub(r"<[^>]+>", " ", resp.text)
         # Collapse whitespace
         text = re.sub(r"\s+", " ", text).strip()
-        if len(text) > 50000:
-            text = text[:50000] + "\n... [truncated]"
+        if len(text) > 8000:
+            text = text[:8000] + "\n... [truncated]"
         return text
     except Exception as e:
         return f"Error fetching URL: {e}"
@@ -1385,7 +1260,7 @@ def describe_image(image_path: str) -> str | list:
         {"type": "image", "source": {"type": "base64", "media_type": mime, "data": image_b64}},
     ]
 
-def read_daily_log(date_str: str | None = None, offset: int = 0, max_chars: int = 50000) -> str:
+def read_daily_log(date_str: str | None = None, offset: int = 0, max_chars: int = 8000) -> str:
     """Read a comprehensive daily log file, with chunking support."""
     from datetime import date
     if not date_str:
@@ -1752,20 +1627,11 @@ TOOL_DISPATCH = {
     "check_weather": lambda args: check_weather(args["location"]),
     "send_message": lambda args: send_message(args["recipient"], args["message"], attachment=args.get("attachment"), quote_timestamp=args.get("quote_timestamp"), quote_author=args.get("quote_author")),
     "memory_search": lambda args: memory_search(args["query"], args.get("mode", "semantic"), args.get("count", 10)),
-    "search_torrents": lambda args: search_torrents(args["query"], args.get("media_type", "movie"), args.get("max_results", 10)),
-    "download_torrent": lambda args: download_torrent(args["torrent_id"], args["filename"], args["destination"]),
-    "download_media": lambda args: download_media(args["query"], args.get("media_type", "movie"), args.get("index", 0)),
-    "list_torrents": lambda args: list_torrents(),
     "send_reaction": lambda args: send_reaction(args["emoji"], args["target_author"], args["target_timestamp"], args["recipient"]),
     "send_poll": lambda args: send_poll(args["recipient"], args["question"], args["options"], allow_multiple=args.get("allow_multiple", True)),
-    "vote_poll": lambda args: vote_poll(args["recipient"], args["poll_author"], args["poll_timestamp"], args["option_indexes"], args.get("vote_count", 1)),
     "generate_image": lambda args: generate_image(args["prompt"]),
     "describe_image": lambda args: describe_image(args["image_path"]),
-    "generate_voice": lambda args: generate_speech(args["text"], voice=args.get("voice")),
-    "read_daily_log": lambda args: read_daily_log(args.get("date"), args.get("offset", 0), args.get("max_chars", 50000)),
     "check_sms": lambda args: check_sms(args.get("count", 5)),
-    "emby_admin": lambda args: emby_admin(args["action"], **{k: v for k, v in args.items() if k != "action"}),
-    "audiobookshelf_admin": lambda args: audiobookshelf_admin(args["action"], **{k: v for k, v in args.items() if k != "action"}),
     "check_quota": lambda args: check_quota(),
 }
 

@@ -30,7 +30,7 @@ _group_cache: dict[str, dict] = {}
 def _normalize_id(raw: str | None) -> str | None:
     """
     Normalize a Signal identity to a canonical string:
-    - Phone numbers stay as-is: '+13045043270'
+    - Phone numbers stay as-is: '+16142080533'
     - UUIDs get prefixed: 'uuid:xxxxxxxx-...'
     """
     if not raw:
