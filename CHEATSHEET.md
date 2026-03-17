@@ -37,11 +37,9 @@ wc -c ~/.cleo/workspace/SOUL.md ~/.cleo/workspace/USER.md ~/.cleo/workspace/MEMO
 ## GitHub (from ~/cleo/)
 ```bash
 cd ~/cleo
-git status                         # see what changed
-git add -A                         # stage all changes
-git commit -m "description"        # save snapshot
-git push                           # upload to GitHub
-git log --oneline                  # see commit history
+git status                              # see what changed
+~/cleo/scripts/commit.sh "description"  # stage, commit, and push in one step
+git log --oneline                       # see commit history
 ```
 
 ## Looper — Card Game Playtest Engine
