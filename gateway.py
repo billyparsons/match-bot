@@ -1908,7 +1908,10 @@ async def scheduled_event_callback(event_name: str, prompt: str) -> None:
                     except ValueError:
                         pass
 
-            await wake_loop()
+        # Step 6: Reset consciousness
+        consciousness.clear()
+        _save_consciousness()
+        log.info("Dream: all maintenance complete — consciousness reset")
 
 
 # --- TCP listener ---
