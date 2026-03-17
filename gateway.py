@@ -915,15 +915,24 @@ def _ensure_valid_history(history: list[dict]) -> list[dict]:
                 break  # valid start — compaction summary
         history = history[1:]
 
-    # Merge consecutive user messages (API rejects two user turns in a row)
+    # Remove consecutive user messages that are plain text (wake summaries)
+    # Do NOT merge tool_result messages — mixing tool_result and text blocks is invalid
     i = 0
     while i < len(history) - 1:
         if history[i]["role"] == "user" and history[i+1]["role"] == "user":
-            # Merge second into first
+            # Only merge if neither message contains tool_result blocks
             c1 = history[i]["content"] if isinstance(history[i]["content"], list) else [{"type": "text", "text": history[i]["content"]}]
             c2 = history[i+1]["content"] if isinstance(history[i+1]["content"], list) else [{"type": "text", "text": history[i+1]["content"]}]
-            history[i]["content"] = c1 + c2
-            history.pop(i+1)
+            has_tool_result = any(b.get("type") == "tool_result" for b in c1 + c2 if isinstance(b, dict))
+            if has_tool_result:
+                # Drop the non-tool_result message, keep the tool_result one
+                if any(b.get("type") == "tool_result" for b in c1 if isinstance(b, dict)):
+                    history.pop(i+1)
+                else:
+                    history.pop(i)
+            else:
+                history[i]["content"] = c1 + c2
+                history.pop(i+1)
         else:
             i += 1
 
