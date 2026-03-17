@@ -25,7 +25,6 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 | ~/.cleo/workspace/SOUL.md | Personality — loaded every wake, keep under 2KB |
 | ~/.cleo/workspace/USER.md | Who Billy is — loaded every wake |
 | ~/.cleo/workspace/MEMORY.md | Long-term facts — loaded every wake, target under 4000 chars |
-| ~/.cleo/workspace/CODEBASE.md | This file — Match's self-knowledge |
 
 ## Workspace Files (written/read during operation)
 | File | Purpose |
@@ -100,6 +99,6 @@ When Billy asks for a code change in plain English:
 1. Make the change using edit_file or write_file
 2. Test if needed via exec_command
 3. Restart service if gateway.py or config files changed
-4. Commit and push: exec_command("cd ~/cleo && git add -A && git commit -m 'description' && git push")
+4. ~/cleo/scripts/commit.sh "description"
 5. Update CODEBASE.md and CHEATSHEET.md if constants or structure changed
 6. Confirm to Billy what was changed and pushed
