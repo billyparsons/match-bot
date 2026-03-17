@@ -60,13 +60,15 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 - Looper reads key from ~/looper.env
 
 ## Dream (3am America/Chicago)
-Fires via cron. Match should NOT schedule it manually. Steps:
+Fires via cron. Match should NOT schedule it manually. Match handles:
 1. Read today's daily log → write summary to summaries/
 2. Update MEMORY.md (prune to under 4000 chars)
-3. Trim feeds to 6, delete subagent/scheduled threads
-4. Delete today's daily log
-5. Delete summaries older than 14 days
-6. consciousness.json reset to empty IN CODE (gateway.py, not by Match manually)
+
+Code handles automatically after dream completes:
+- Feeds trimmed to 6, subagent/scheduled threads purged
+- Today's daily log deleted
+- Summaries older than 14 days deleted
+- consciousness.json reset to empty
 
 ## Making Code Changes
 1. Edit file directly: nano ~/cleo/gateway.py

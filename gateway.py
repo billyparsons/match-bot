@@ -27,7 +27,7 @@ import base64
 import asyncio
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict, deque
 
 from anthropic import AsyncAnthropic
@@ -1120,11 +1120,37 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     async with consciousness_lock:
         if unread_feed_ids:
             await wake_loop()
-    # After dream, reset consciousness in code (not relying on Match to do it)
+    # After dream, run all maintenance tasks in code (not relying on Match)
     if event_name == "dream":
+        workspace = CONFIG["workspace"]
+
+        # Step 3 already handled by _trim_feeds in wake_loop
+
+        # Step 4: Delete today's daily log
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_log = os.path.join(workspace, "memory", f"{today}.md")
+        if os.path.exists(daily_log):
+            os.remove(daily_log)
+            log.info("Dream: deleted daily log %s", daily_log)
+
+        # Step 5: Delete summaries older than 14 days
+        summaries_dir = os.path.join(workspace, "memory", "summaries")
+        cutoff = datetime.now() - timedelta(days=14)
+        if os.path.exists(summaries_dir):
+            for fname in os.listdir(summaries_dir):
+                if fname.endswith(".md"):
+                    try:
+                        fdate = datetime.strptime(fname[:10], "%Y-%m-%d")
+                        if fdate < cutoff:
+                            os.remove(os.path.join(summaries_dir, fname))
+                            log.info("Dream: deleted old summary %s", fname)
+                    except ValueError:
+                        pass
+
+        # Step 6: Reset consciousness
         consciousness.clear()
         _save_consciousness()
-        log.info("Dream complete: consciousness reset to empty")
+        log.info("Dream: all maintenance complete — consciousness reset")
 
 
 # --- Debounce mechanism ---
