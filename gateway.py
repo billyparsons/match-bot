@@ -1132,10 +1132,6 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     async with consciousness_lock:
         if unread_feed_ids:
             await wake_loop()
-        # Step 6: Reset consciousness
-        consciousness.clear()
-        _save_consciousness()
-        log.info("Dream: all maintenance complete — consciousness reset")
 
 
 # --- Debounce mechanism ---
