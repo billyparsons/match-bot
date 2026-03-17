@@ -73,7 +73,7 @@ Fires via cron. Match should NOT schedule it manually. Steps:
 1. Edit file directly: nano ~/cleo/gateway.py
 2. Restart service: systemctl --user restart cleo
 3. Verify: journalctl --user -u cleo | tail -20
-4. Commit: cd ~/cleo && git add -A && git commit -m "description" && git push
+4. Commit and push: ~/cleo/scripts/commit.sh "description"
 - Changes to .py files or config.yaml require restart
 - Changes to SOUL.md, MEMORY.md, USER.md take effect next wake (no restart needed)
 
