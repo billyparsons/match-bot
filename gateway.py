@@ -1260,7 +1260,7 @@ async def wake_loop() -> None:
     unread_feed_ids.clear()
 
     # Append wake-up summary to consciousness
-    consciousness.append({"role": "user", "content": summary})
+    consciousness.append({"role": "user", "content": [{"type": "text", "text": summary}]})
 
     # Pre-emptive feed read: inject as if Cleo already called read_feed
     # This saves 2+ API round trips (check_feeds + read_feed per feed)
