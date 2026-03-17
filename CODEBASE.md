@@ -94,3 +94,12 @@ schedule_reminder, list_reminders, cancel_reminder
 - Remote: https://github.com/billyparsons/match-bot.git
 - Credentials stored via git credential helper
 - .gitignore excludes: .env, config.yaml, memory/, workspace data
+
+## Text-to-GitHub Workflow
+When Billy asks for a code change in plain English:
+1. Make the change using edit_file or write_file
+2. Test if needed via exec_command
+3. Restart service if gateway.py or config files changed
+4. Commit and push: exec_command("cd ~/cleo && git add -A && git commit -m 'description' && git push")
+5. Update CODEBASE.md and CHEATSHEET.md if constants or structure changed
+6. Confirm to Billy what was changed and pushed
