@@ -915,6 +915,18 @@ def _ensure_valid_history(history: list[dict]) -> list[dict]:
                 break  # valid start — compaction summary
         history = history[1:]
 
+    # Merge consecutive user messages (API rejects two user turns in a row)
+    i = 0
+    while i < len(history) - 1:
+        if history[i]["role"] == "user" and history[i+1]["role"] == "user":
+            # Merge second into first
+            c1 = history[i]["content"] if isinstance(history[i]["content"], list) else [{"type": "text", "text": history[i]["content"]}]
+            c2 = history[i+1]["content"] if isinstance(history[i+1]["content"], list) else [{"type": "text", "text": history[i+1]["content"]}]
+            history[i]["content"] = c1 + c2
+            history.pop(i+1)
+        else:
+            i += 1
+
     # Clean trailing orphaned tool_use (no matching tool_result follows)
     while history and history[-1]["role"] == "assistant":
         content = history[-1].get("content", [])
