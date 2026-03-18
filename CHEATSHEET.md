@@ -91,3 +91,9 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - MAX_FEED_MESSAGES = 6
 - MAX_TOKENS = 8192
 - WAKE_DEBOUNCE_GROUP = 3.5 seconds
+
+## OAuth Billing Fix (applied 2026-03-17)
+- User-agent: claude-code/2.1.76
+- Salt: 59cf53e54c78
+- If Match gets 400 errors again: check latest Claude Code version and updated salt in clewdr repo
+- Reference: https://github.com/anomalyco/opencode/issues/17910
