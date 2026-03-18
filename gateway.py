@@ -1055,19 +1055,25 @@ async def subagent_loop(sender_id: str, group_id: str | None,
             )
     log.info("Subagent %s using soul: %s", task_id, soul)
     now = datetime.now()
-    system_prompt = (
+    system_prompt_text = (
         f"**Now:** {now.strftime('%A, %Y-%m-%d, at %-I:%M %p ET')}\n\n"
         f"{subagent_soul}\n\n---\n\n"
         f"## Task\n\n{task_description}"
     )
     if task_context:
-        system_prompt += f"\n\n## Additional Context\n\n{task_context}"
+        system_prompt_text += f"\n\n## Additional Context\n\n{task_context}"
 
     # Isolated conversation history
     first_msg = f"Execute this task:\n\n{task_description}"
     if task_context:
         first_msg += f"\n\nContext:\n{task_context}"
     history = [{"role": "user", "content": first_msg}]
+
+    # Build system as list with billing header (required for OAuth)
+    system_prompt = [
+        {"type": "text", "text": _compute_billing_header(first_msg)},
+        {"type": "text", "text": system_prompt_text},
+    ]
 
     model = model_override or CONFIG.get("model", "claude-sonnet-4-6")
     final_summary = None
