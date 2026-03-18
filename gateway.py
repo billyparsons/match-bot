@@ -1248,7 +1248,7 @@ async def wake_loop() -> None:
         count = feed.get("unread_count", len(feed["messages"]))
         last_msg = feed["messages"][-1]
         summary_parts.append(
-            f"- **{fid}** ({count} new) — last: {last_msg['sender']} \"{last_msg['text'][:60]}\""
+            f"- **{fid}** ({count} new) — last: {last_msg['sender']} \"{last_msg['text'][:60]}\"" + (" [📎 image]" if last_msg.get("attachments") else "")
         )
 
     if not summary_parts:
