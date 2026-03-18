@@ -31,6 +31,9 @@ from datetime import datetime, timedelta
 from collections import defaultdict, deque
 import hashlib
 
+# WARNING: If Match suddenly stops working, check if Anthropic updated Claude Code.
+# Update CLAUDE_CODE_VERSION to match `claude --version` and check clewdr repo
+# (https://github.com/Xerxes-2/clewdr) for updated BILLING_SALT.
 CLAUDE_CODE_VERSION = "2.1.76"
 CLAUDE_CODE_BILLING_SALT = "59cf53e54c78"
 
@@ -382,6 +385,20 @@ _last_input_tokens: int = 0  # updated after each successful API call
 MAX_SUBAGENT_ITERATIONS = 50
 MAX_CONCURRENT_SUBAGENTS = 3  # per person
 active_subagents: dict[str, list[asyncio.Task]] = defaultdict(list)
+
+def cancel_all_subagents() -> str:
+    """Cancel all running subagent tasks."""
+    total = 0
+    for key, tasks in active_subagents.items():
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+                total += 1
+        tasks.clear()
+    if total:
+        log.info("Cancelled %d subagent(s)", total)
+        return f"Cancelled {total} running subagent(s)."
+    return "No subagents running."
 
 # --- Group ID ↔ name mappings (now via identity module) ---
 
@@ -1320,7 +1337,13 @@ async def wake_loop() -> None:
         {"type": "text", "text": static_prompt, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": dynamic_prompt},
     ]
-    tools = list(WAKE_TOOL_DEFINITIONS)
+    # Inject cancel_tasks tool dynamically
+    CANCEL_TOOL = {
+        "name": "cancel_tasks",
+        "description": "Cancel all running background subagent tasks. Use when Billy says stop, cancel, or abort.",
+        "input_schema": {"type": "object", "properties": {}},
+    }
+    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL]
     if tools:
         tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
@@ -1500,6 +1523,15 @@ async def wake_loop() -> None:
                 if block.type != "tool_use":
                     continue
 
+                if block.name == "cancel_tasks":
+                    result_text = cancel_all_subagents()
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result_text,
+                    })
+                    wake_log.append(f"### Tool: cancel_tasks\nResult: {result_text}")
+                    continue
                 if block.name == "delegate_task":
                     # Special case: launch subagent in background
                     task_args = dict(block.input)
@@ -1948,6 +1980,17 @@ async def scheduled_event_callback(event_name: str, prompt: str) -> None:
         # Step 6: Reset consciousness
         consciousness.clear()
         _save_consciousness()
+
+        # Step 7: Append to dream-log.md (hardcoded, not relying on Match)
+        dream_log_path = os.path.join(workspace, "memory", "dream-log.md")
+        try:
+            with open(dream_log_path, "a") as dlf:
+                dlf.write(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M CT')}] Dream: "
+                          f"consciousness reset, daily log deleted, old summaries pruned.\n")
+            log.info("Dream: appended to dream-log.md")
+        except Exception as e:
+            log.warning("Dream: failed to write dream-log.md: %s", e)
+
         log.info("Dream: all maintenance complete — consciousness reset")
 
 
