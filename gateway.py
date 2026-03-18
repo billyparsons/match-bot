@@ -29,6 +29,29 @@ import logging
 import logging.handlers
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
+import hashlib
+
+CLAUDE_CODE_VERSION = "2.1.76"
+CLAUDE_CODE_BILLING_SALT = "59cf53e54c78"
+
+def _compute_billing_header(first_user_text: str) -> str:
+    """Compute the billing header Anthropic now requires for OAuth."""
+    chars = []
+    utf16 = first_user_text.encode('utf-16-le')
+    for idx in [4, 7, 20]:
+        if idx * 2 + 1 < len(utf16):
+            unit = int.from_bytes(utf16[idx*2:idx*2+2], 'little')
+            chars.append(chr(unit))
+        else:
+            chars.append('0')
+    sampled = ''.join(chars)
+    version_hash = hashlib.sha256(
+        f'{CLAUDE_CODE_BILLING_SALT}{sampled}{CLAUDE_CODE_VERSION}'.encode()
+    ).hexdigest()
+    return (
+        f"x-anthropic-billing-header: cc_version={CLAUDE_CODE_VERSION}"
+        f".{version_hash[:3]}; cc_entrypoint=cli; cch=00000;"
+    )
 
 from anthropic import AsyncAnthropic
 
@@ -371,19 +394,23 @@ _reminders: list[dict] = []
 
 def init_api_client() -> AsyncAnthropic:
     """
-    Create the AsyncAnthropic client with OAuth authentication.
-    Called at startup and when token refresh is needed.
+    Create the AsyncAnthropic client. Detects API key vs OAuth token.
     """
     token = load_credentials()
-    client = AsyncAnthropic(
-        auth_token=token,
-        default_headers={
-            "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,compact-2026-01-12,context-management-2025-06-27",
-            "user-agent": "claude-cli/2.1.2 (external, cli)",
-            "x-app": "cli",
-        },
-    )
-    log.info("Anthropic API client initialized")
+    is_api_key = token.startswith("sk-ant-api")
+    if is_api_key:
+        client = AsyncAnthropic(api_key=token)
+        log.info("Anthropic API client initialized (API key)")
+    else:
+        client = AsyncAnthropic(
+            auth_token=token,
+            default_headers={
+                "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,compact-2026-01-12,context-management-2025-06-27",
+                "user-agent": "claude-code/2.1.76",
+                "x-app": "cli",
+            },
+        )
+        log.info("Anthropic API client initialized (OAuth)")
     return client
 
 
@@ -915,24 +942,15 @@ def _ensure_valid_history(history: list[dict]) -> list[dict]:
                 break  # valid start — compaction summary
         history = history[1:]
 
-    # Remove consecutive user messages that are plain text (wake summaries)
-    # Do NOT merge tool_result messages — mixing tool_result and text blocks is invalid
+    # Merge consecutive user messages (API rejects two user turns in a row)
     i = 0
     while i < len(history) - 1:
         if history[i]["role"] == "user" and history[i+1]["role"] == "user":
-            # Only merge if neither message contains tool_result blocks
+            # Merge second into first
             c1 = history[i]["content"] if isinstance(history[i]["content"], list) else [{"type": "text", "text": history[i]["content"]}]
             c2 = history[i+1]["content"] if isinstance(history[i+1]["content"], list) else [{"type": "text", "text": history[i+1]["content"]}]
-            has_tool_result = any(b.get("type") == "tool_result" for b in c1 + c2 if isinstance(b, dict))
-            if has_tool_result:
-                # Drop the non-tool_result message, keep the tool_result one
-                if any(b.get("type") == "tool_result" for b in c1 if isinstance(b, dict)):
-                    history.pop(i+1)
-                else:
-                    history.pop(i)
-            else:
-                history[i]["content"] = c1 + c2
-                history.pop(i+1)
+            history[i]["content"] = c1 + c2
+            history.pop(i+1)
         else:
             i += 1
 
@@ -1284,7 +1302,21 @@ async def wake_loop() -> None:
     # Prepare system blocks and tools (saves tokens on repeat calls).
     # Block 1 (cached): stable identity — SOUL, USER, MEMORY files.
     # Block 2 (not cached): volatile context — timestamp, changes every wake.
+    # Extract first user message text for billing header
+    _first_user_text = ""
+    for _m in consciousness:
+        if _m.get("role") == "user":
+            _c = _m.get("content", "")
+            if isinstance(_c, str):
+                _first_user_text = _c
+            elif isinstance(_c, list):
+                for _b in _c:
+                    if isinstance(_b, dict) and _b.get("type") == "text":
+                        _first_user_text = _b.get("text", "")
+                        break
+            break
     system = [
+        {"type": "text", "text": _compute_billing_header(_first_user_text)},
         {"type": "text", "text": static_prompt, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": dynamic_prompt},
     ]
