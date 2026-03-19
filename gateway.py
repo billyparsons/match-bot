@@ -2111,6 +2111,22 @@ async def main() -> None:
     # Restore feeds from previous session
     _load_feeds()
 
+    # SIGUSR1 handler: external processes (e.g. commit.sh) can trigger a wake
+    # by writing to feeds.json and sending SIGUSR1 to this process.
+    import signal as _signal
+    def _sigusr1_handler(signum, frame):
+        try:
+            _load_feeds()
+            if unread_feed_ids:
+                loop = asyncio.get_event_loop()
+                loop.call_soon_threadsafe(
+                    lambda: asyncio.ensure_future(wake_loop())
+                )
+                log.info("SIGUSR1 received: feed reload triggered wake")
+        except Exception as e:
+            log.warning("SIGUSR1 handler error: %s", e)
+    _signal.signal(_signal.SIGUSR1, _sigusr1_handler)
+
     # Restore consciousness from previous session
     _load_consciousness()
     valid = _ensure_valid_history(consciousness)

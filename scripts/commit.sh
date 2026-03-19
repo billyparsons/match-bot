@@ -1,4 +1,14 @@
 #!/bin/bash
+# Skip feed injection if called from cleo process to avoid circular notifications
+if [ -n "$CLEO_PROCESS" ]; then
+    cd ~/cleo
+    git add -A
+    git commit -m "${1:-update}"
+    git push
+    echo "Pushed to GitHub"
+    exit 0
+fi
+
 cd ~/cleo
 git add -A
 git commit -m "${1:-update}"
