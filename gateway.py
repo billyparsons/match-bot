@@ -406,7 +406,10 @@ def _load_usage() -> None:
     # Ensure structure
     _usage.setdefault("oauth", {"5h": 0.0, "7d": 0.0})
     _usage.setdefault("api", {"session_cost": 0.0, "session_tokens_in": 0, "session_tokens_out": 0})
-    _usage.setdefault("limits", {"oauth_5h": 1.0, "api_dollars": 999.0})
+    # Delta-based limits: how much a task is allowed to consume from its baseline
+    # oauth_delta: fraction of 5h window (0.15 = 15 percentage points)
+    # api_delta: dollars ($1.00 default)
+    _usage.setdefault("limits", {"oauth_delta": 0.15, "api_delta": 1.00})
     _usage.setdefault("tasks", {})
 
 def _save_usage() -> None:
@@ -432,21 +435,55 @@ def _update_usage(tokens_in: int, tokens_out: int, task_id: str | None = None) -
         _usage["tasks"][task_id]["cost"] = round(_usage["tasks"][task_id]["cost"] + cost, 6)
     _save_usage()
 
+def _check_task_limits(task_id: str) -> dict | None:
+    """Check if a specific task has exceeded its delta limits. Returns violation dict or None."""
+    task = _usage.get("tasks", {}).get(task_id)
+    if not task:
+        return None
+    oauth_delta = _usage["limits"].get("oauth_delta", 0.15)
+    api_delta = _usage["limits"].get("api_delta", 1.00)
+    # Check OAuth delta
+    baseline_oauth = task.get("baseline_oauth_5h", 0.0)
+    current_oauth = _usage["oauth"].get("5h", 0.0)
+    try:
+        current_oauth = float(current_oauth)
+        baseline_oauth = float(baseline_oauth)
+    except (ValueError, TypeError):
+        current_oauth = 0.0
+        baseline_oauth = 0.0
+    oauth_used = current_oauth - baseline_oauth
+    if oauth_used >= oauth_delta:
+        return {
+            "type": "oauth_delta",
+            "task_id": task_id,
+            "baseline": baseline_oauth,
+            "current": current_oauth,
+            "used": oauth_used,
+            "limit": oauth_delta,
+            "msg": f"task {task_id} used {oauth_used*100:.1f}% of 5h session (limit: {oauth_delta*100:.0f}%)"
+        }
+    # Check API delta
+    baseline_api = task.get("baseline_api_cost", 0.0)
+    current_api = _usage["api"].get("session_cost", 0.0)
+    api_used = current_api - baseline_api
+    if api_used >= api_delta:
+        return {
+            "type": "api_delta",
+            "task_id": task_id,
+            "baseline": baseline_api,
+            "current": current_api,
+            "used": api_used,
+            "limit": api_delta,
+            "msg": f"task {task_id} spent ${api_used:.4f} (limit: ${api_delta:.2f})"
+        }
+    return None
+
 def _check_limits() -> dict | None:
-    """Check if any limits are exceeded. Returns violation dict or None."""
-    oauth_5h = _usage["oauth"].get("5h", 0.0)
-    limit_5h = _usage["limits"].get("oauth_5h", 1.0)
-    if isinstance(oauth_5h, str):
-        try:
-            oauth_5h = float(oauth_5h)
-        except ValueError:
-            oauth_5h = 0.0
-    if oauth_5h >= limit_5h:
-        return {"type": "oauth_5h", "current": oauth_5h, "limit": limit_5h}
-    api_cost = _usage["api"].get("session_cost", 0.0)
-    limit_dollars = _usage["limits"].get("api_dollars", 999.0)
-    if api_cost >= limit_dollars:
-        return {"type": "api_dollars", "current": api_cost, "limit": limit_dollars}
+    """Check all active tasks for limit violations. Returns first violation or None."""
+    for task_id in list(_usage.get("tasks", {}).keys()):
+        violation = _check_task_limits(task_id)
+        if violation:
+            return violation
     return None
 
 # --- Subagent constants ---
@@ -1101,6 +1138,14 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     """
     global api_client
     task_id = f"task-{int(time.time())}"
+    # Snapshot usage baseline for this task
+    if task_id not in _usage.get("tasks", {}):
+        _usage.setdefault("tasks", {})[task_id] = {
+            "tokens_in": 0, "tokens_out": 0, "cost": 0.0,
+            "baseline_oauth_5h": float(_usage["oauth"].get("5h", 0.0)),
+            "baseline_api_cost": float(_usage["api"].get("session_cost", 0.0)),
+        }
+        _save_usage()
     log.info("Subagent %s starting for %s in %s: %s",
              task_id, sender_id, get_group_name(group_id), task_description[:100])
 
@@ -1179,6 +1224,20 @@ async def subagent_loop(sender_id: str, group_id: str | None,
             log.info("Subagent %s iter %d: stop=%s, in=%d out=%d",
                      task_id, iteration, response.stop_reason, _sa_in, _sa_out)
             _update_usage(_sa_in, _sa_out, task_id=task_id)
+            # Check delta limits after each iteration
+            _violation = _check_task_limits(task_id)
+            if _violation:
+                log.warning("Subagent %s killed: %s", task_id, _violation["msg"])
+                # Clean up task entry
+                _usage.get("tasks", {}).pop(task_id, None)
+                _save_usage()
+                # Notify Billy via feed injection
+                _kill_msg = f"🚨 subagent {task_id} killed — {_violation['msg']}"
+                feeds[f"system:kill:{task_id}"] = {"group_id": None, "messages": [{"sender": "system", "text": _kill_msg, "timestamp": datetime.now().strftime("%H:%M")}]}
+                feeds[f"system:kill:{task_id}"]["unread_count"] = 1
+                unread_feed_ids.add(f"system:kill:{task_id}")
+                _save_feeds()
+                return
 
             # Build assistant message
             assistant_content = []
@@ -1627,24 +1686,35 @@ async def wake_loop() -> None:
                     continue
                 if block.name == "check_usage":
                     violation = _check_limits()
-                    oauth_5h = _usage["oauth"].get("5h", 0.0)
-                    oauth_7d = _usage["oauth"].get("7d", 0.0)
+                    oauth_5h = float(_usage["oauth"].get("5h", 0.0))
+                    oauth_7d = float(_usage["oauth"].get("7d", 0.0))
                     api_cost = _usage["api"].get("session_cost", 0.0)
                     tokens_in = _usage["api"].get("session_tokens_in", 0)
                     tokens_out = _usage["api"].get("session_tokens_out", 0)
-                    limit_5h = _usage["limits"].get("oauth_5h", 1.0)
-                    limit_dollars = _usage["limits"].get("api_dollars", 999.0)
+                    oauth_delta = _usage["limits"].get("oauth_delta", 0.15)
+                    api_delta = _usage["limits"].get("api_delta", 1.00)
+                    # Build per-task summary
+                    task_summary = {}
+                    for tid, tdata in _usage.get("tasks", {}).items():
+                        b_oauth = float(tdata.get("baseline_oauth_5h", 0.0))
+                        b_api = float(tdata.get("baseline_api_cost", 0.0))
+                        task_summary[tid] = {
+                            "oauth_used": f"{(oauth_5h - b_oauth)*100:.1f}% of {oauth_delta*100:.0f}% limit",
+                            "api_spent": f"${api_cost - b_api:.4f} of ${api_delta:.2f} limit",
+                        }
                     usage_report = {
-                        "oauth_5h": f"{float(oauth_5h)*100:.1f}% (limit: {float(limit_5h)*100:.0f}%)",
-                        "oauth_7d": f"{float(oauth_7d)*100:.1f}%",
-                        "api_cost": f"${api_cost:.4f} (limit: ${limit_dollars:.2f})",
+                        "oauth_5h": f"{oauth_5h*100:.1f}%",
+                        "oauth_7d": f"{oauth_7d*100:.1f}%",
+                        "oauth_delta_limit": f"{oauth_delta*100:.0f}% per task",
+                        "api_cost_total": f"${api_cost:.4f}",
+                        "api_delta_limit": f"${api_delta:.2f} per task",
                         "api_tokens": f"in={tokens_in:,} out={tokens_out:,}",
-                        "tasks": _usage.get("tasks", {}),
+                        "active_tasks": task_summary,
                         "violation": violation,
                     }
                     if violation:
                         cancel_all_subagents()
-                        usage_report["action"] = "LIMIT EXCEEDED — all subagents cancelled"
+                        usage_report["action"] = f"LIMIT EXCEEDED — all subagents cancelled: {violation['msg']}"
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
