@@ -31,6 +31,7 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 |------|---------|
 | ~/.cleo/workspace/consciousness.json | Rolling conversation history, capped at 20 messages, reset nightly |
 | ~/.cleo/workspace/feeds.json | Signal conversation threads, capped at 6 messages each |
+| ~/.cleo/workspace/usage.json | Session usage tracking — OAuth %, API cost, token counts, per-task breakdown |
 | ~/.cleo/workspace/memory/YYYY-MM-DD.md | Daily raw log, written all day, deleted after dream |
 | ~/.cleo/workspace/memory/summaries/YYYY-MM-DD.md | Dream summary, kept 14 days |
 | ~/.cleo/workspace/memory/dream-log.md | Dream cycle log |
@@ -44,6 +45,16 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 | MAX_AGENTIC_ITERATIONS | 50 | Safety limit on tool loops |
 | WAKE_DEBOUNCE_DM | 0 | Seconds to wait before waking for DMs |
 | WAKE_DEBOUNCE_GROUP | 3.5 | Seconds to wait before waking for group messages |
+| PRICE_INPUT_PER_M | 3.00 | Sonnet 4.6 input token price per million |
+| PRICE_OUTPUT_PER_M | 15.00 | Sonnet 4.6 output token price per million |
+
+## Usage Tracking (gateway.py)
+- `_load_usage()` / `_save_usage()` — read/write `usage.json` at startup and after each API call
+- `_update_usage(tokens_in, tokens_out, task_id)` — accumulates session cost + token counts; per-task breakdown if task_id provided
+- `_check_limits()` — returns violation dict if OAuth 5h ≥ limit or API cost ≥ limit; else None
+- `check_usage` tool — dynamically injected into wake_loop tools; returns OAuth %, API cost, token counts, tasks, violation
+- Limits configurable in `usage.json` under `limits`: `oauth_5h` (fraction, default 1.0), `api_dollars` (default 999.0)
+- OAuth utilization fed in from `_update_rate_limits()` (parsed from response headers)
 
 ## How a Wake Cycle Works
 1. Message arrives via Signal → buffered into feeds.json
@@ -91,7 +102,7 @@ Code handles automatically after dream completes:
 exec_command, read_file, write_file, edit_file, send_message, web_search, web_fetch,
 memory_search, find_files, delegate_task, cancel_tasks, check_feeds, read_feed,
 send_reaction, send_poll, generate_image, describe_image, schedule_reminder,
-check_quota, restart_self
+check_quota, restart_self, check_usage
 
 ## Subagent System
 - `delegate_task` launches background subagents with their own isolated conversation

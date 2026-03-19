@@ -98,6 +98,13 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - MAX_TOKENS = 8192
 - WAKE_DEBOUNCE_GROUP = 3.5 seconds
 
+## Usage Tracking
+- Match tracks OAuth %, API cost, and token counts in `~/.cleo/workspace/usage.json`
+- `check_usage` tool returns current session stats + any limit violations
+- Tell Match "check usage" to see current utilization
+- Limits in usage.json under `limits`: `oauth_5h` (fraction, default 1.0), `api_dollars` (default $999)
+- Per-subagent task cost breakdown included in usage output
+
 ## OAuth Billing Fix (applied 2026-03-17)
 - User-agent: claude-code/2.1.76
 - Salt: 59cf53e54c78
