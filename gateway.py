@@ -1338,6 +1338,17 @@ async def wake_loop() -> None:
                         _first_user_text = _b.get("text", "")
                         break
             break
+    # Enrich dynamic prompt with semantically relevant memories
+    try:
+        from vectorstore import query_memories, format_retrieved_context
+        if _first_user_text:
+            _vstore_results = query_memories(_first_user_text, n_results=5)
+            if _vstore_results:
+                _vstore_context = format_retrieved_context(_vstore_results)
+                dynamic_prompt += "\n\n---\n\n## Retrieved Memories\n\n" + _vstore_context
+                log.info("Vector enrichment: %d chunks injected", len(_vstore_results))
+    except Exception as _ve:
+        log.warning("Vector enrichment failed: %s", _ve)
     system = [
         {"type": "text", "text": _compute_billing_header(_first_user_text)},
         {"type": "text", "text": static_prompt, "cache_control": {"type": "ephemeral"}},
