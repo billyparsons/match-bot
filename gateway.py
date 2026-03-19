@@ -451,6 +451,13 @@ def _check_task_limits(task_id: str) -> dict | None:
     except (ValueError, TypeError):
         current_oauth = 0.0
         baseline_oauth = 0.0
+    # Handle 5h window reset — if current < baseline, window rolled over
+    # Reset baseline to 0 so delta is measured from the fresh window
+    if current_oauth < baseline_oauth:
+        log.info("5h window reset detected for task %s — resetting baseline to 0", task_id)
+        task["baseline_oauth_5h"] = 0.0
+        baseline_oauth = 0.0
+        _save_usage()
     oauth_used = current_oauth - baseline_oauth
     if oauth_used >= oauth_delta:
         return {
@@ -1306,6 +1313,10 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     append_daily_memory(CONFIG["workspace"], entry)
 
     log.info("Subagent %s finished, injected as feed %s", task_id, result_feed_id)
+    # Clean up completed task from usage tracking
+    if task_id in _usage.get("tasks", {}):
+        _usage["tasks"].pop(task_id)
+        _save_usage()
 
     # Wake immediately so Cleo can process the result
     async with consciousness_lock:
@@ -1494,7 +1505,43 @@ async def wake_loop() -> None:
         "description": "Check current session usage — OAuth 5h/7d utilization and API cost. Use before delegating expensive tasks, or when Billy asks about usage/cost/juice. Returns current vs limits and warns if close to threshold.",
         "input_schema": {"type": "object", "properties": {}},
     }
-    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL]
+    SET_LIMIT_TOOL = {
+        "name": "set_usage_limit",
+        "description": "Set a usage limit for subagents and tasks. Use when Billy says things like 'set api limit to $2' or 'set oauth limit to 20%'. type must be 'oauth' or 'api'. value is a number — dollars for api (e.g. 2.0), percentage points for oauth (e.g. 20 means 20%). Takes effect immediately on all running and future tasks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": ["oauth", "api"], "description": "Which limit to set"},
+                "value": {"type": "number", "description": "Dollars for api, percentage points for oauth (e.g. 20 = 20%)"}
+            },
+            "required": ["type", "value"]
+        },
+    }
+    START_LOOPER_TOOL = {
+        "name": "start_looper",
+        "description": "Launch a game design looper session in the background. Use when Billy asks to start/run a looper or game design session. Launches with nohup so it runs independently, logs to session file, returns PID and tail command. Always use this instead of exec_command for looper runs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "game": {"type": "string", "description": "Game name (e.g. backprop)"},
+                "loops": {"type": "integer", "description": "Number of loops to run (default 3)", "default": 3},
+                "note": {"type": "string", "description": "Optional note to inject into the session"}
+            },
+            "required": ["game"]
+        },
+    }
+    STOP_LOOPER_TOOL = {
+        "name": "stop_looper",
+        "description": "Stop a running looper session by killing its process. Use when Billy asks to stop/cancel/kill the looper.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "game": {"type": "string", "description": "Game name (e.g. backprop)"}
+            },
+            "required": ["game"]
+        },
+    }
+    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL, SET_LIMIT_TOOL, START_LOOPER_TOOL, STOP_LOOPER_TOOL]
     if tools:
         tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
@@ -1721,6 +1768,71 @@ async def wake_loop() -> None:
                         "content": json.dumps(usage_report),
                     })
                     wake_log.append(f"### Tool: check_usage\n{json.dumps(usage_report, indent=2)}")
+                    continue
+                if block.name == "set_usage_limit":
+                    _limit_type = block.input.get("type")
+                    _limit_value = float(block.input.get("value", 0))
+                    if _limit_type == "oauth":
+                        _usage["limits"]["oauth_delta"] = round(_limit_value / 100.0, 4)
+                        _confirm = f"oauth delta limit set to {_limit_value:.0f}% — subagents will be killed if they consume more than {_limit_value:.0f}% of the 5h session window from their start point"
+                    elif _limit_type == "api":
+                        _usage["limits"]["api_delta"] = round(_limit_value, 4)
+                        _confirm = f"api delta limit set to ${_limit_value:.2f} — subagents will be killed if they spend more than ${_limit_value:.2f} from their start point"
+                    else:
+                        _confirm = f"unknown limit type: {_limit_type}"
+                    _save_usage()
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _confirm,
+                    })
+                    wake_log.append(f"### Tool: set_usage_limit\nResult: {_confirm}")
+                    continue
+                if block.name == "start_looper":
+                    _game = block.input.get("game", "")
+                    _loops = block.input.get("loops", 3)
+                    _note = block.input.get("note", "")
+                    # Find next session number
+                    import glob as _glob
+                    _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
+                    os.makedirs(_game_dir, exist_ok=True)
+                    _existing = _glob.glob(f"{_game_dir}/session_*_transcript.md")
+                    _sess_num = len(_existing) + 1
+                    _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
+                    _note_arg = f'--note "{_note}"' if _note else ""
+                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
+                    import subprocess as _sp
+                    _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
+                    _pid = _result.stdout.strip()
+                    # Store PID in usage.json
+                    _usage.setdefault("loopers", {})[_game] = {"pid": _pid, "log": _log_file, "loops": _loops}
+                    _save_usage()
+                    _looper_reply = f"looper started for {_game} ({_loops} loops) — PID {_pid}\nwatch it live: tail -f {_log_file}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _looper_reply,
+                    })
+                    wake_log.append(f"### Tool: start_looper\n{_looper_reply}")
+                    continue
+                if block.name == "stop_looper":
+                    _game = block.input.get("game", "")
+                    _looper_info = _usage.get("loopers", {}).get(_game)
+                    if _looper_info and _looper_info.get("pid"):
+                        _pid = _looper_info["pid"]
+                        import subprocess as _sp
+                        _sp.run(f"kill {_pid} 2>/dev/null || true", shell=True)
+                        _usage.get("loopers", {}).pop(_game, None)
+                        _save_usage()
+                        _stop_reply = f"looper {_game} (PID {_pid}) killed"
+                    else:
+                        _stop_reply = f"no running looper found for {_game}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _stop_reply,
+                    })
+                    wake_log.append(f"### Tool: stop_looper\n{_stop_reply}")
                     continue
                 if block.name == "delegate_task":
                     # Special case: launch subagent in background
