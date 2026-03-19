@@ -49,6 +49,14 @@ git log --oneline                       # see commit history
 - Circular guard: if Match itself commits (CLEO_PROCESS set), no notification fires
 
 ## Looper — Card Game Playtest Engine
+### Via Match (Recommended)
+```bash
+"start looper for backprop"
+"run 5 loops of backprop with a note about card balance"
+"stop the looper"
+```
+
+### Manual (via shell)
 ```bash
 python3 ~/game_design_session.py --game backprop          # run Backprop session
 python3 ~/game_design_session.py --game backprop --loops 1  # 1 loop only
@@ -57,6 +65,12 @@ python3 ~/game_design_session.py --list                   # list all games
 cat ~/game-sessions/backprop/current_seed.md              # view current seed
 cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 ```
+
+### Looper Tools
+- `start_looper` — launches looper in background with nohup; returns PID and log file path
+- `stop_looper` — kills a running looper session by game name
+- Sessions are numbered sequentially (session_001, session_002, etc.)
+- Logs: ~/game-sessions/{game}/session_NNN_looper.log
 
 ## Looper — Start a New Game
 ```bash
