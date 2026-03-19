@@ -1480,17 +1480,17 @@ async def wake_loop() -> None:
         if iterations:
             def _iter_tokens(it, key):
                 return it[key] if isinstance(it, dict) else getattr(it, key)
-            total_in = response.usage.input_tokens
+            total_in = (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0)
             total_out = sum(_iter_tokens(it, 'output_tokens') for it in iterations)
             log.info("Wake API: stop=%s, %d blocks, %d+%d tokens (%d iterations)",
                      response.stop_reason, len(response.content), total_in, total_out,
                      len(iterations))
-            _last_input_tokens = response.usage.input_tokens
+            _last_input_tokens = total_in
         else:
             log.info("Wake API response: stop_reason=%s, %d blocks, in=%d out=%d tokens",
                      response.stop_reason, len(response.content),
-                     response.usage.input_tokens, response.usage.output_tokens)
-            _last_input_tokens = response.usage.input_tokens
+                     (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0), response.usage.output_tokens)
+            _last_input_tokens = (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0)
 
         # Log context management edits if any were applied
         ctx_mgmt_resp = getattr(response, 'context_management', None)
