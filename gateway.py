@@ -372,6 +372,13 @@ def _update_rate_limits(headers) -> None:
 
     log.info("Rate limits \u2014 5h: %s | 7d: %s | 7d-sonnet: %s | status: %s",
              _fmt_pct(util_5h), _fmt_pct(util_7d), _fmt_pct(util_sonnet), status)
+    # Update usage tracking with latest OAuth utilization
+    if util_5h != "?" and _usage:
+        try:
+            _usage["oauth"]["5h"] = float(util_5h)
+            _usage["oauth"]["7d"] = float(util_7d) if util_7d != "?" else _usage["oauth"].get("7d", 0.0)
+        except (ValueError, TypeError):
+            pass
 
 # --- Replay protection ---
 MAX_MESSAGE_AGE_SECONDS = 300  # 5 minutes
@@ -380,6 +387,67 @@ MAX_MESSAGE_AGE_SECONDS = 300  # 5 minutes
 MAX_AGENTIC_ITERATIONS = 50  # safety limit on tool loops
 MAX_TOKENS = 16384  # max output tokens per API call
 _last_input_tokens: int = 0  # updated after each successful API call
+
+# --- Usage tracking ---
+USAGE_FILE = os.path.join(CONFIG["workspace"], "usage.json")
+# Sonnet 4.6 pricing (per million tokens)
+PRICE_INPUT_PER_M = 3.00
+PRICE_OUTPUT_PER_M = 15.00
+
+_usage: dict = {}  # loaded at startup
+
+def _load_usage() -> None:
+    global _usage
+    try:
+        with open(USAGE_FILE, "r") as f:
+            _usage = json.load(f)
+    except FileNotFoundError:
+        _usage = {}
+    # Ensure structure
+    _usage.setdefault("oauth", {"5h": 0.0, "7d": 0.0})
+    _usage.setdefault("api", {"session_cost": 0.0, "session_tokens_in": 0, "session_tokens_out": 0})
+    _usage.setdefault("limits", {"oauth_5h": 1.0, "api_dollars": 999.0})
+    _usage.setdefault("tasks", {})
+
+def _save_usage() -> None:
+    try:
+        tmp = USAGE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_usage, f, indent=2)
+        os.replace(tmp, USAGE_FILE)
+    except Exception as e:
+        log.warning("Failed to save usage: %s", e)
+
+def _update_usage(tokens_in: int, tokens_out: int, task_id: str | None = None) -> None:
+    """Update usage tracking after an API call."""
+    cost = (tokens_in / 1_000_000 * PRICE_INPUT_PER_M) + (tokens_out / 1_000_000 * PRICE_OUTPUT_PER_M)
+    _usage["api"]["session_cost"] = round(_usage["api"].get("session_cost", 0) + cost, 6)
+    _usage["api"]["session_tokens_in"] = _usage["api"].get("session_tokens_in", 0) + tokens_in
+    _usage["api"]["session_tokens_out"] = _usage["api"].get("session_tokens_out", 0) + tokens_out
+    if task_id:
+        if task_id not in _usage["tasks"]:
+            _usage["tasks"][task_id] = {"tokens_in": 0, "tokens_out": 0, "cost": 0.0}
+        _usage["tasks"][task_id]["tokens_in"] += tokens_in
+        _usage["tasks"][task_id]["tokens_out"] += tokens_out
+        _usage["tasks"][task_id]["cost"] = round(_usage["tasks"][task_id]["cost"] + cost, 6)
+    _save_usage()
+
+def _check_limits() -> dict | None:
+    """Check if any limits are exceeded. Returns violation dict or None."""
+    oauth_5h = _usage["oauth"].get("5h", 0.0)
+    limit_5h = _usage["limits"].get("oauth_5h", 1.0)
+    if isinstance(oauth_5h, str):
+        try:
+            oauth_5h = float(oauth_5h)
+        except ValueError:
+            oauth_5h = 0.0
+    if oauth_5h >= limit_5h:
+        return {"type": "oauth_5h", "current": oauth_5h, "limit": limit_5h}
+    api_cost = _usage["api"].get("session_cost", 0.0)
+    limit_dollars = _usage["limits"].get("api_dollars", 999.0)
+    if api_cost >= limit_dollars:
+        return {"type": "api_dollars", "current": api_cost, "limit": limit_dollars}
+    return None
 
 # --- Subagent constants ---
 MAX_SUBAGENT_ITERATIONS = 50
@@ -1106,9 +1174,11 @@ async def subagent_loop(sender_id: str, group_id: str | None,
                 else:
                     raise
 
+            _sa_in = (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0)
+            _sa_out = response.usage.output_tokens or 0
             log.info("Subagent %s iter %d: stop=%s, in=%d out=%d",
-                     task_id, iteration, response.stop_reason,
-                     response.usage.input_tokens, response.usage.output_tokens)
+                     task_id, iteration, response.stop_reason, _sa_in, _sa_out)
+            _update_usage(_sa_in, _sa_out, task_id=task_id)
 
             # Build assistant message
             assistant_content = []
@@ -1360,7 +1430,12 @@ async def wake_loop() -> None:
         "description": "Cancel all running background subagent tasks. Use when Billy says stop, cancel, or abort.",
         "input_schema": {"type": "object", "properties": {}},
     }
-    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL]
+    CHECK_USAGE_TOOL = {
+        "name": "check_usage",
+        "description": "Check current session usage — OAuth 5h/7d utilization and API cost. Use before delegating expensive tasks, or when Billy asks about usage/cost/juice. Returns current vs limits and warns if close to threshold.",
+        "input_schema": {"type": "object", "properties": {}},
+    }
+    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL]
     if tools:
         tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
@@ -1491,6 +1566,7 @@ async def wake_loop() -> None:
                      response.stop_reason, len(response.content),
                      (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0), response.usage.output_tokens)
             _last_input_tokens = (response.usage.input_tokens or 0) + (response.usage.cache_creation_input_tokens or 0) + (response.usage.cache_read_input_tokens or 0)
+            _update_usage(_last_input_tokens, response.usage.output_tokens or 0)
 
         # Log context management edits if any were applied
         ctx_mgmt_resp = getattr(response, 'context_management', None)
@@ -1548,6 +1624,33 @@ async def wake_loop() -> None:
                         "content": result_text,
                     })
                     wake_log.append(f"### Tool: cancel_tasks\nResult: {result_text}")
+                    continue
+                if block.name == "check_usage":
+                    violation = _check_limits()
+                    oauth_5h = _usage["oauth"].get("5h", 0.0)
+                    oauth_7d = _usage["oauth"].get("7d", 0.0)
+                    api_cost = _usage["api"].get("session_cost", 0.0)
+                    tokens_in = _usage["api"].get("session_tokens_in", 0)
+                    tokens_out = _usage["api"].get("session_tokens_out", 0)
+                    limit_5h = _usage["limits"].get("oauth_5h", 1.0)
+                    limit_dollars = _usage["limits"].get("api_dollars", 999.0)
+                    usage_report = {
+                        "oauth_5h": f"{float(oauth_5h)*100:.1f}% (limit: {float(limit_5h)*100:.0f}%)",
+                        "oauth_7d": f"{float(oauth_7d)*100:.1f}%",
+                        "api_cost": f"${api_cost:.4f} (limit: ${limit_dollars:.2f})",
+                        "api_tokens": f"in={tokens_in:,} out={tokens_out:,}",
+                        "tasks": _usage.get("tasks", {}),
+                        "violation": violation,
+                    }
+                    if violation:
+                        cancel_all_subagents()
+                        usage_report["action"] = "LIMIT EXCEEDED — all subagents cancelled"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(usage_report),
+                    })
+                    wake_log.append(f"### Tool: check_usage\n{json.dumps(usage_report, indent=2)}")
                     continue
                 if block.name == "delegate_task":
                     # Special case: launch subagent in background
@@ -2110,6 +2213,7 @@ async def main() -> None:
 
     # Restore feeds from previous session
     _load_feeds()
+    _load_usage()
 
     # SIGUSR1 handler: external processes (e.g. commit.sh) can trigger a wake
     # by writing to feeds.json and sending SIGUSR1 to this process.
