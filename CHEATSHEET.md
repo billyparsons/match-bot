@@ -38,9 +38,15 @@ wc -c ~/.cleo/workspace/SOUL.md ~/.cleo/workspace/USER.md ~/.cleo/workspace/MEMO
 ```bash
 cd ~/cleo
 git status                              # see what changed
-~/cleo/scripts/commit.sh "description"  # stage, commit, and push in one step
+~/cleo/scripts/commit.sh "description"  # stage, commit, push, AND notify Match
 git log --oneline                       # see commit history
 ```
+
+## Commit → Match Auto-Notify
+- `commit.sh` calls `scripts/notify_match.py` after every push
+- `notify_match.py` writes to `scheduled:commit-notify` feed + sends SIGUSR1 to gateway
+- Match wakes immediately and reviews commit for doc updates
+- Circular guard: if Match itself commits (CLEO_PROCESS set), no notification fires
 
 ## Looper — Card Game Playtest Engine
 ```bash

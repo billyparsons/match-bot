@@ -128,3 +128,21 @@ Match should then update ALL of the following in one shot:
 - ~/cleo/CHEATSHEET.md — update quick reference if needed
 - ~/.cleo/workspace/MEMORY.md — note the capability if Match needs to know about it
 Then run ~/cleo/scripts/commit.sh "update docs for [feature]" to push doc changes.
+
+## Commit Notification System
+When Billy pushes to GitHub, Match is automatically notified via the `scheduled:commit-notify` feed.
+
+**How it works:**
+1. `~/cleo/scripts/commit.sh "message"` — stages, commits, and pushes to GitHub, then calls `notify_match.py`
+2. `~/cleo/scripts/notify_match.py <message>` — writes to `scheduled:commit-notify` feed in feeds.json, then sends SIGUSR1 to gateway.py process
+3. `gateway.py` SIGUSR1 handler — receives signal, reloads feeds.json, triggers `wake_loop()` immediately
+4. Match wakes, reads the commit-notify feed, and decides what (if anything) to update in docs
+
+**Decision rule:** Not every commit needs doc updates.
+- Structural changes (new tools, new flows, new constants, new files) → update CODEBASE.md + CHEATSHEET.md + MEMORY.md as needed
+- Behavior changes Billy interacts with → update CHEATSHEET.md
+- Typos, refactors, minor fixes → no doc update needed; tell Billy "nothing to document here"
+
+**SIGUSR1 handler location:** `gateway.py` in `main()`, after `_load_feeds()`, before `_load_consciousness()`
+
+**Circular commit guard:** `commit.sh` checks for `$CLEO_PROCESS` env var — if set, skips feed injection so Match's own doc-update commits don't trigger another notification.
