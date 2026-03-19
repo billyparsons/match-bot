@@ -95,5 +95,19 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 ## OAuth Billing Fix (applied 2026-03-17)
 - User-agent: claude-code/2.1.76
 - Salt: 59cf53e54c78
+- Billing header computed per-wake and injected as first system block
+- Subagents also get billing header in their system prompts (fixed 2026-03-18)
 - If Match gets 400 errors again: check latest Claude Code version and updated salt in clewdr repo
 - Reference: https://github.com/anomalyco/opencode/issues/17910
+
+## Subagents
+- `delegate_task` → spawns background subagent (engineer/researcher/consolidator/planner)
+- Soul files: ~/.cleo/workspace/subagent_souls/{engineer,researcher,consolidator}.md
+- `cancel_tasks` → cancels all running subagents (dynamically injected tool, not in tools.py)
+- Results come back as subagent:<task_id> feed → Match wakes and reports
+
+## Vector Memory
+- ChromaDB-backed semantic search over all workspace memory files
+- Auto-indexed on startup; top 5 chunks injected per wake cycle
+- memory_search tool: semantic mode = vector query; exact mode = grep
+- Vectorstore lives in ~/.cleo/workspace/ (ChromaDB collection)

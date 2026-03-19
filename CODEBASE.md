@@ -48,11 +48,13 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 ## How a Wake Cycle Works
 1. Message arrives via Signal → buffered into feeds.json
 2. Debounce timer fires → wake_loop() called
-3. Static prompt built from SOUL + USER + MEMORY (cached)
-4. Feed prefetched (last unread + 2 history messages) injected into consciousness
-5. API call made → Match reasons, calls tools, sends reply
-6. Daily memory log appended
-7. Feeds trimmed, consciousness saved
+3. Static prompt built from SOUL + USER + MEMORY (cached, ephemeral cache)
+4. Vector store queried on first user message → top 5 relevant memory chunks injected as "Retrieved Memories"
+5. Feed prefetched (last unread + 2 history messages) injected into consciousness
+6. Billing header computed and injected as first system block (OAuth requirement)
+7. API call made → Match reasons, calls tools, sends reply
+8. Daily memory log appended
+9. Feeds trimmed, consciousness saved
 
 ## Auth
 - Match uses OAuth (Claude Pro session limit) via ~/.claude/.credentials.json
@@ -87,8 +89,22 @@ Code handles automatically after dream completes:
 
 ## Tools Available
 exec_command, read_file, write_file, edit_file, send_message, web_search, web_fetch,
-memory_search, find_files, delegate_task, list_feeds, read_feed, send_reaction,
-schedule_reminder, list_reminders, cancel_reminder
+memory_search, find_files, delegate_task, cancel_tasks, check_feeds, read_feed,
+send_reaction, send_poll, generate_image, describe_image, schedule_reminder,
+check_quota, restart_self
+
+## Subagent System
+- `delegate_task` launches background subagents with their own isolated conversation
+- Subagent souls loaded from `~/.cleo/workspace/subagent_souls/` (engineer.md, researcher.md, consolidator.md)
+- Billing header is injected into subagent system prompts (same OAuth fix as main loop)
+- Results injected as `subagent:<task_id>` feed → wakes main loop for reporting
+- `cancel_tasks` tool cancels all running asyncio subagent tasks (dynamically injected per wake)
+
+## Vector Memory (vectorstore.py / ChromaDB)
+- Initialized at startup: `init_vectorstore()` + `index_memory_files()` indexes all workspace memory
+- On each wake: first user message queried → top 5 semantic chunks injected into dynamic prompt
+- Also available as `memory_search` tool (semantic mode uses vector store; exact mode = grep)
+- Indexed files: MEMORY.md, daily logs, dream summaries
 
 ## GitHub
 - Repo: github.com/billyparsons/match-bot
