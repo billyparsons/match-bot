@@ -102,8 +102,10 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - Match tracks OAuth %, API cost, and token counts in `~/.cleo/workspace/usage.json`
 - `check_usage` tool returns current session stats + any limit violations
 - Tell Match "check usage" to see current utilization
-- Limits in usage.json under `limits`: `oauth_5h` (fraction, default 1.0), `api_dollars` (default $999)
-- Per-subagent task cost breakdown included in usage output
+- Limits are **delta-based per task**: `oauth_delta` (default 15% of 5h window), `api_delta` (default $1.00)
+- Each subagent snapshots its baseline at start; limits measured from that baseline, not total session
+- Passive kill: subagents auto-killed if they exceed delta limits mid-run; system feed injected to notify Match
+- Per-task delta usage shown in `check_usage` output (`active_tasks` field)
 
 ## OAuth Billing Fix (applied 2026-03-17)
 - User-agent: claude-code/2.1.76

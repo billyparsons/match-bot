@@ -51,9 +51,12 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 ## Usage Tracking (gateway.py)
 - `_load_usage()` / `_save_usage()` — read/write `usage.json` at startup and after each API call
 - `_update_usage(tokens_in, tokens_out, task_id)` — accumulates session cost + token counts; per-task breakdown if task_id provided
-- `_check_limits()` — returns violation dict if OAuth 5h ≥ limit or API cost ≥ limit; else None
-- `check_usage` tool — dynamically injected into wake_loop tools; returns OAuth %, API cost, token counts, tasks, violation
-- Limits configurable in `usage.json` under `limits`: `oauth_5h` (fraction, default 1.0), `api_dollars` (default 999.0)
+- `_check_task_limits(task_id)` — checks if a specific task exceeded its delta limits (OAuth or API); returns violation dict or None
+- `_check_limits()` — iterates all active tasks, returns first violation or None
+- `check_usage` tool — dynamically injected into wake_loop tools; returns OAuth %, API cost, token counts, per-task delta usage, violation
+- Limits are **delta-based** (per-task): configurable in `usage.json` under `limits`: `oauth_delta` (fraction of 5h window, default 0.15 = 15%), `api_delta` (dollars, default $1.00)
+- Each subagent task snapshots `baseline_oauth_5h` and `baseline_api_cost` at start; limits measured from baseline
+- Passive kill: if a subagent exceeds its delta limits mid-iteration, it is killed and a `system:kill:<task_id>` feed is injected to notify Match
 - OAuth utilization fed in from `_update_rate_limits()` (parsed from response headers)
 
 ## How a Wake Cycle Works
