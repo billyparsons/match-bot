@@ -1480,12 +1480,12 @@ async def wake_loop() -> None:
         if iterations:
             def _iter_tokens(it, key):
                 return it[key] if isinstance(it, dict) else getattr(it, key)
-            total_in = sum(_iter_tokens(it, 'input_tokens') for it in iterations)
+            total_in = response.usage.input_tokens
             total_out = sum(_iter_tokens(it, 'output_tokens') for it in iterations)
             log.info("Wake API: stop=%s, %d blocks, %d+%d tokens (%d iterations)",
                      response.stop_reason, len(response.content), total_in, total_out,
                      len(iterations))
-            _last_input_tokens = _iter_tokens(iterations[-1], 'input_tokens')
+            _last_input_tokens = response.usage.input_tokens
         else:
             log.info("Wake API response: stop_reason=%s, %d blocks, in=%d out=%d tokens",
                      response.stop_reason, len(response.content),
