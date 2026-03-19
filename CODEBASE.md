@@ -104,3 +104,11 @@ When Billy asks for a code change in plain English:
 4. ~/cleo/scripts/commit.sh "description"
 5. Update CODEBASE.md and CHEATSHEET.md if constants or structure changed
 6. Confirm to Billy what was changed and pushed
+
+## Doc Update Workflow
+After any significant code change is committed, Billy will text Match to update docs.
+Match should then update ALL of the following in one shot:
+- ~/cleo/CODEBASE.md — add/update the relevant section
+- ~/cleo/CHEATSHEET.md — update quick reference if needed
+- ~/.cleo/workspace/MEMORY.md — note the capability if Match needs to know about it
+Then run ~/cleo/scripts/commit.sh "update docs for [feature]" to push doc changes.
