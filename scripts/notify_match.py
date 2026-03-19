@@ -1,20 +1,17 @@
-#!/usr/bin/env python3
+#!/home/billy/cleo/venv/bin/python
 import sys
-import requests
-import json
+import os
+sys.path.insert(0, '/home/billy/cleo')
+os.chdir('/home/billy/cleo')
+
+from config import load_config
+CONFIG = load_config()
+
+from tools import send_message
 
 msg = sys.argv[1] if len(sys.argv) > 1 else "commit pushed"
-payload = {
-    "jsonrpc": "2.0",
-    "method": "sendMessage",
-    "id": "commit-notify",
-    "params": {
-        "account": "+13463460886",
-        "recipient": "d9ffd4d4-0738-46e1-a1fe-cfc95ebdd525",
-        "message": msg
-    }
-}
-try:
-    requests.post("http://127.0.0.1:8080/api/v1/rpc", json=payload, timeout=5)
-except Exception as e:
-    print(f"Notify failed: {e}")
+result = send_message(
+    recipient="uuid:d9ffd4d4-0738-46e1-a1fe-cfc95ebdd525",
+    message=msg
+)
+print(result)
