@@ -1152,7 +1152,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     # Inject result as a feed event — Cleo decides what to do with it
     compact_summary = final_summary[:4000] if len(final_summary) > 4000 else final_summary
     result_feed_id = f"subagent:{task_id}"
-    feeds[result_feed_id] = {"group_id": None, "messages": []}
+    feeds[result_feed_id] = {"group_id": None, "messages": [], "unread_count": 1}
     feeds[result_feed_id]["messages"].append({
         "sender": "system",
         "text": (
