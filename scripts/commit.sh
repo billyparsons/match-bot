@@ -8,10 +8,9 @@ if [ -n "$CLEO_PROCESS" ]; then
     echo "Pushed to GitHub"
     exit 0
 fi
-
 cd ~/cleo
 git add -A
 git commit -m "${1:-update}"
 git push
 echo "Pushed to GitHub"
-/home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "hey! just pushed a commit: \"${1:-update}\" — review and update CODEBASE.md and CHEATSHEET.md if anything changed. text me when done or if nothing needed updating."
+/home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "commit: \"${1:-update}\" — review for doc updates per CODEBASE.md doc update workflow. update CHEATSHEET.md if behavior changed. text me when done or if nothing needed."

@@ -8,7 +8,8 @@ from datetime import datetime
 
 FEEDS_FILE = os.path.expanduser("~/.cleo/workspace/feeds.json")
 
-msg = sys.argv[1] if len(sys.argv) > 1 else "commit pushed"
+raw_msg = sys.argv[1] if len(sys.argv) > 1 else "commit pushed"
+msg = f"commit: {raw_msg} — review for doc updates per CODEBASE.md doc update workflow"
 feed_id = "scheduled:commit-notify"
 
 try:
