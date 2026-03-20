@@ -442,6 +442,7 @@ def _check_task_limits(task_id: str) -> dict | None:
         return None
     oauth_delta = _usage["limits"].get("oauth_delta", 0.15)
     api_delta = _usage["limits"].get("api_delta", 1.00)
+    task_type = task.get("task_type", "subagent")  # default to subagent for safety
     # Check OAuth delta
     baseline_oauth = task.get("baseline_oauth_5h", 0.0)
     current_oauth = _usage["oauth"].get("5h", 0.0)
@@ -459,7 +460,7 @@ def _check_task_limits(task_id: str) -> dict | None:
         baseline_oauth = 0.0
         _save_usage()
     oauth_used = current_oauth - baseline_oauth
-    if oauth_used >= oauth_delta:
+    if task_type == "subagent" and oauth_used >= oauth_delta:
         return {
             "type": "oauth_delta",
             "task_id": task_id,
@@ -473,7 +474,7 @@ def _check_task_limits(task_id: str) -> dict | None:
     baseline_api = task.get("baseline_api_cost", 0.0)
     current_api = _usage["api"].get("session_cost", 0.0)
     api_used = current_api - baseline_api
-    if api_used >= api_delta:
+    if task_type == "looper" and api_used >= api_delta:
         return {
             "type": "api_delta",
             "task_id": task_id,
@@ -1149,6 +1150,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
     if task_id not in _usage.get("tasks", {}):
         _usage.setdefault("tasks", {})[task_id] = {
             "tokens_in": 0, "tokens_out": 0, "cost": 0.0,
+            "task_type": "subagent",
             "baseline_oauth_5h": float(_usage["oauth"].get("5h", 0.0)),
             "baseline_api_cost": float(_usage["api"].get("session_cost", 0.0)),
         }
