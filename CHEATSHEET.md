@@ -68,8 +68,9 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 
 ### Looper Tools
 - `start_looper` — launches looper in background with nohup; returns PID and log file path
+  - `players` param: number of playtesters (default 4, range 2-5) — dynamically selects from pool
 - `stop_looper` — kills a running looper session by game name
-- Sessions are numbered sequentially (session_001, session_002, etc.)
+- Sessions numbered by finding highest existing session, not counting files
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
 
 ## Looper — Start a New Game
