@@ -1527,7 +1527,8 @@ async def wake_loop() -> None:
             "properties": {
                 "game": {"type": "string", "description": "Game name (e.g. backprop)"},
                 "loops": {"type": "integer", "description": "Number of loops to run (default 3)", "default": 3},
-                "note": {"type": "string", "description": "Optional note to inject into the session"}
+                "note": {"type": "string", "description": "Optional note to inject into the session"},
+                "players": {"type": "integer", "description": "Number of playtesters (default: 4, range: 2-5)", "default": 4}
             },
             "required": ["game"]
         },
@@ -1794,6 +1795,7 @@ async def wake_loop() -> None:
                     _game = block.input.get("game", "")
                     _loops = block.input.get("loops", 3)
                     _note = block.input.get("note", "")
+                    _players = block.input.get("players", 4)
                     # Find next session number
                     import glob as _glob
                     _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
@@ -1802,7 +1804,7 @@ async def wake_loop() -> None:
                     _sess_num = len(_existing) + 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
-                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
+                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} --players {_players} {_note_arg} > {_log_file} 2>&1 & echo $!"
                     import subprocess as _sp
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
