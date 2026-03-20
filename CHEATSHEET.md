@@ -117,8 +117,9 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - `check_usage` tool returns current session stats + any limit violations
 - Tell Match "check usage" to see current utilization
 - Limits are **delta-based per task**: `oauth_delta` (default 15% of 5h window), `api_delta` (default $1.00)
-- Each subagent snapshots its baseline at start; limits measured from that baseline, not total session
-- Passive kill: subagents auto-killed if they exceed delta limits mid-run; system feed injected to notify Match
+- Each task snapshots its baseline at start; limits measured from that baseline, not total session
+- **Subagents** monitored against `oauth_delta` (they use OAuth); **Loopers** monitored against `api_delta` (they use API credits)
+- Passive kill: tasks auto-killed if they exceed their delta limit mid-run; system feed injected to notify Match
 - Per-task delta usage shown in `check_usage` output (`active_tasks` field)
 
 ## OAuth Billing Fix (applied 2026-03-17)
