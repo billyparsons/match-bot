@@ -73,6 +73,11 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 - Sessions numbered by finding highest existing session, not counting files
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
 
+### Looper Kill Behavior
+- **Intra-loop kill**: usage checked after EACH agent step (not just between loops) — killed mid-loop if limit breached
+- **Summarizer skipped on kill**: if a session is killed, the end-of-session summarizer is skipped entirely
+- **Iteration tokens**: 1200 per agent call (patch/doc-update calls get 4000)
+
 ## Looper — Start a New Game
 ```bash
 mkdir -p ~/game-sessions/my-game
