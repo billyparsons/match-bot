@@ -427,8 +427,7 @@ def _update_usage(tokens_in: int, tokens_out: int, task_id: str | None = None) -
     _usage["api"]["session_cost"] = round(_usage["api"].get("session_cost", 0) + cost, 6)
     _usage["api"]["session_tokens_in"] = _usage["api"].get("session_tokens_in", 0) + tokens_in
     _usage["api"]["session_tokens_out"] = _usage["api"].get("session_tokens_out", 0) + tokens_out
-    # Note: account_balance is not decremented here — Match runs on OAuth (no API credit cost).
-    # Only the looper (API key) decrements account_balance via game_design_session.py.
+
     if task_id:
         if task_id not in _usage["tasks"]:
             _usage["tasks"][task_id] = {"tokens_in": 0, "tokens_out": 0, "cost": 0.0}
@@ -1513,17 +1512,6 @@ async def wake_loop() -> None:
         "description": "Check current session usage — OAuth 5h/7d utilization and API cost. Use before delegating expensive tasks, or when Billy asks about usage/cost/juice. Returns current vs limits and warns if close to threshold.",
         "input_schema": {"type": "object", "properties": {}},
     }
-    SET_BALANCE_TOOL = {
-        "name": "set_balance",
-        "description": "Set or update Billy's Anthropic credit balance. Use when Billy says things like 'I have $X in credits', 'I added $X', or 'my balance is $X'. This lets check_usage report accurate remaining credits.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "balance": {"type": "number", "description": "Current account balance in dollars"},
-                "add": {"type": "number", "description": "Amount to ADD to existing balance (use when Billy says 'I added $X')"}
-            }
-        },
-    }
     SET_LIMIT_TOOL = {
         "name": "set_usage_limit",
         "description": "Set a usage limit for subagents and tasks. Use when Billy says things like 'set api limit to $2' or 'set oauth limit to 20%'. type must be 'oauth' or 'api'. value is a number — dollars for api (e.g. 2.0), percentage points for oauth (e.g. 20 means 20%). Takes effect immediately on all running and future tasks.",
@@ -1561,7 +1549,7 @@ async def wake_loop() -> None:
             "required": ["game"]
         },
     }
-    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL, SET_LIMIT_TOOL, SET_BALANCE_TOOL, START_LOOPER_TOOL, STOP_LOOPER_TOOL]
+    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL, SET_LIMIT_TOOL, START_LOOPER_TOOL, STOP_LOOPER_TOOL]
     if tools:
         tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
@@ -1770,12 +1758,11 @@ async def wake_loop() -> None:
                             "oauth_used": f"{(oauth_5h - b_oauth)*100:.1f}% of {oauth_delta*100:.0f}% limit",
                             "api_spent": f"${api_cost - b_api:.4f} of ${api_delta:.2f} limit",
                         }
-                    account_balance = _usage["api"].get("account_balance", None)
                     usage_report = {
                         "oauth_5h": f"{oauth_5h*100:.1f}%",
                         "oauth_7d": f"{oauth_7d*100:.1f}%",
                         "oauth_delta_limit": f"{oauth_delta*100:.0f}% per task",
-                        "api_credits_remaining": f"${account_balance:.2f}" if account_balance is not None else "not set — text me your balance to track it",
+                        "api_spend_today": f"${api_cost:.4f}",
                         "api_delta_limit": f"${api_delta:.2f} per looper session",
                         "active_tasks": task_summary,
                         "violation": violation,
@@ -1789,27 +1776,6 @@ async def wake_loop() -> None:
                         "content": json.dumps(usage_report),
                     })
                     wake_log.append(f"### Tool: check_usage\n{json.dumps(usage_report, indent=2)}")
-                    continue
-                if block.name == "set_balance":
-                    _bal_set = block.input.get("balance")
-                    _bal_add = block.input.get("add")
-                    _usage.setdefault("api", {})
-                    if _bal_set is not None:
-                        _usage["api"]["account_balance"] = round(float(_bal_set), 2)
-                        _bal_confirm = f"balance set to ${_bal_set:.2f}"
-                    elif _bal_add is not None:
-                        current = _usage["api"].get("account_balance", 0.0)
-                        _usage["api"]["account_balance"] = round(current + float(_bal_add), 2)
-                        _bal_confirm = f"added ${_bal_add:.2f} — new balance: ${_usage['api']['account_balance']:.2f}"
-                    else:
-                        _bal_confirm = "no balance or add amount provided"
-                    _save_usage()
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": _bal_confirm,
-                    })
-                    wake_log.append(f"### Tool: set_balance\nResult: {_bal_confirm}")
                     continue
                 if block.name == "set_usage_limit":
                     _limit_type = block.input.get("type")
@@ -2329,6 +2295,13 @@ async def scheduled_event_callback(event_name: str, prompt: str) -> None:
         workspace = CONFIG["workspace"]
 
         # Step 3 already handled by _trim_feeds in wake_loop
+
+        # Step 3b: Reset daily API spend counter
+        _usage["api"]["session_cost"] = 0.0
+        _usage["api"]["session_tokens_in"] = 0
+        _usage["api"]["session_tokens_out"] = 0
+        _save_usage()
+        log.info("Dream: reset daily API spend counter")
 
         # Step 4: Delete today's daily log
         today = datetime.now().strftime("%Y-%m-%d")
