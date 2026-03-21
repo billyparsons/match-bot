@@ -85,7 +85,7 @@ Code handles automatically after dream completes:
 - Today's daily log deleted
 - Summaries older than 14 days deleted
 - consciousness.json reset to empty
-- Daily API spend counter reset (session_cost, session_tokens reset to 0)
+- Daily looper spend counter reset (`looper_spend_today` → 0.0)
 
 ## Making Code Changes
 1. Edit file directly: nano ~/cleo/gateway.py
