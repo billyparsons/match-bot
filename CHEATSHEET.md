@@ -122,9 +122,10 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - WAKE_DEBOUNCE_GROUP = 3.5 seconds
 
 ## Usage Tracking
-- Match tracks OAuth %, API cost, and token counts in `~/.cleo/workspace/usage.json`
+- Match tracks OAuth %, API credits remaining, and token counts in `~/.cleo/workspace/usage.json`
 - `check_usage` tool returns current session stats + any limit violations
 - Tell Match "check usage" to see current utilization
+- **Account balance**: Tell Match "I have $X in credits" or "I added $X" — Match calls `set_balance` and tracks remaining credits. Shown as `api_credits_remaining` in check_usage output. Decremented automatically on every API call.
 - Limits are **delta-based per task**: `oauth_delta` (default 15% of 5h window), `api_delta` (default $1.00)
 - Each task snapshots its baseline at start; limits measured from that baseline, not total session
 - **Subagents** monitored against `oauth_delta` (they use OAuth); **Loopers** monitored against `api_delta` (they use API credits)
