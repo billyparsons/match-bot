@@ -424,7 +424,8 @@ def _save_usage() -> None:
 def _update_usage(tokens_in: int, tokens_out: int, task_id: str | None = None) -> None:
     """Update usage tracking after an API call."""
     cost = (tokens_in / 1_000_000 * PRICE_INPUT_PER_M) + (tokens_out / 1_000_000 * PRICE_OUTPUT_PER_M)
-    _usage["api"]["session_cost"] = round(_usage["api"].get("session_cost", 0) + cost, 6)
+    # Note: session_cost intentionally NOT incremented here.
+    # Match runs on OAuth (no API credit cost). Only the looper writes looper_spend_today.
     _usage["api"]["session_tokens_in"] = _usage["api"].get("session_tokens_in", 0) + tokens_in
     _usage["api"]["session_tokens_out"] = _usage["api"].get("session_tokens_out", 0) + tokens_out
 
@@ -1744,7 +1745,7 @@ async def wake_loop() -> None:
                     violation = _check_limits()
                     oauth_5h = float(_usage["oauth"].get("5h", 0.0))
                     oauth_7d = float(_usage["oauth"].get("7d", 0.0))
-                    api_cost = _usage["api"].get("session_cost", 0.0)
+                    api_cost = _usage["api"].get("looper_spend_today", 0.0)
                     tokens_in = _usage["api"].get("session_tokens_in", 0)
                     tokens_out = _usage["api"].get("session_tokens_out", 0)
                     oauth_delta = _usage["limits"].get("oauth_delta", 0.15)
@@ -2041,7 +2042,9 @@ async def handle_signal_message(envelope: dict) -> None:
         return
 
     # Ignore own messages (signal-cli echoes messages the bot sends to groups)
-    if sender_id == CONFIG.get("bot_number"):
+    # Check both phone number and UUID — Signal sometimes echoes with UUID as source
+    bot_uuid = CONFIG.get("bot_uuid", "")
+    if sender_id == CONFIG.get("bot_number") or sender_id == f"uuid:{bot_uuid}":
         return
 
     group_id = get_group_id(envelope)
@@ -2296,12 +2299,10 @@ async def scheduled_event_callback(event_name: str, prompt: str) -> None:
 
         # Step 3 already handled by _trim_feeds in wake_loop
 
-        # Step 3b: Reset daily API spend counter
-        _usage["api"]["session_cost"] = 0.0
-        _usage["api"]["session_tokens_in"] = 0
-        _usage["api"]["session_tokens_out"] = 0
+        # Step 3b: Reset daily looper spend counter
+        _usage["api"]["looper_spend_today"] = 0.0
         _save_usage()
-        log.info("Dream: reset daily API spend counter")
+        log.info("Dream: reset looper_spend_today")
 
         # Step 4: Delete today's daily log
         today = datetime.now().strftime("%Y-%m-%d")
