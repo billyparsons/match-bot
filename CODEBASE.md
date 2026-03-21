@@ -53,8 +53,7 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 - `_update_usage(tokens_in, tokens_out, task_id)` — accumulates session cost + token counts; per-task breakdown if task_id provided
 - `_check_task_limits(task_id)` — checks if a specific task exceeded its delta limits (OAuth or API); returns violation dict or None
 - `_check_limits()` — iterates all active tasks, returns first violation or None
-- `check_usage` tool — dynamically injected into wake_loop tools; returns OAuth %, remaining API credits (if balance set), per-task delta usage, violation
-- `set_balance` tool — dynamically injected; lets Billy set or add to their Anthropic account balance. `balance` = set absolute value; `add` = add to existing. Balance stored in `usage.json` under `api.account_balance`. **Only decremented by the looper** (which uses API credits via `game_design_session.py`). Match's own OAuth wakes do NOT decrement it. Shown as `api_credits_remaining` in `check_usage` output.
+- `check_usage` tool — dynamically injected into wake_loop tools; returns OAuth %, `api_spend_today` (API credits spent since last dream), per-task delta usage, violation. Daily spend counter resets at the 3am dream cycle.
 - Limits are **delta-based** (per-task): configurable in `usage.json` under `limits`: `oauth_delta` (fraction of 5h window, default 0.15 = 15%), `api_delta` (dollars, default $1.00)
 - Each subagent task snapshots `baseline_oauth_5h` and `baseline_api_cost` at start; limits measured from baseline
 - Passive kill: if a subagent exceeds its delta limits mid-iteration, it is killed and a `system:kill:<task_id>` feed is injected to notify Match
@@ -86,6 +85,7 @@ Code handles automatically after dream completes:
 - Today's daily log deleted
 - Summaries older than 14 days deleted
 - consciousness.json reset to empty
+- Daily API spend counter reset (session_cost, session_tokens reset to 0)
 
 ## Making Code Changes
 1. Edit file directly: nano ~/cleo/gateway.py
@@ -106,7 +106,7 @@ Code handles automatically after dream completes:
 exec_command, read_file, write_file, edit_file, send_message, web_search, web_fetch,
 memory_search, find_files, delegate_task, cancel_tasks, check_feeds, read_feed,
 send_reaction, send_poll, generate_image, describe_image, schedule_reminder,
-check_quota, restart_self, check_usage, set_balance
+check_quota, restart_self, check_usage, set_usage_limit
 
 ## Subagent System
 - `delegate_task` launches background subagents with their own isolated conversation
