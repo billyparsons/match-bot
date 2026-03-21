@@ -67,8 +67,11 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 ```
 
 ### Looper Tools
-- `start_looper` — launches looper in background with nohup; returns PID and log file path
-  - `players` param: number of playtesters (default 4, range 2-5) — dynamically selects from pool
+- `start_looper` — launches looper in background; runs preflight check automatically before launch
+  - `loops` param: default **1** (changed from 3)
+  - `api_delta` param: optional budget in dollars (e.g. `api_delta: 2.0`) — overrides default $1.00 kill threshold for this session. Say "api $2" and Match will pass it through.
+  - `note` param: optional note to inject into the session
+  - `players` param: **removed** (was default 4; now handled internally by game_design_session.py)
 - `stop_looper` — kills a running looper session by game name
 - Sessions numbered by finding highest existing session, not counting files
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
