@@ -1525,14 +1525,14 @@ async def wake_loop() -> None:
     }
     START_LOOPER_TOOL = {
         "name": "start_looper",
-        "description": "Launch a game design looper session in the background. Use when Billy asks to start/run a looper or game design session. Launches with nohup so it runs independently, logs to session file, returns PID and tail command. Always use this instead of exec_command for looper runs.",
+        "description": "Launch a game design looper session in the background. Use when Billy asks to start/run a looper or game design session. Runs preflight checks automatically before launch. Always use this instead of exec_command for looper runs. If Billy specifies a budget (e.g. 'api $2'), pass it as api_delta.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "game": {"type": "string", "description": "Game name (e.g. backprop)"},
-                "loops": {"type": "integer", "description": "Number of loops to run (default 3)", "default": 3},
+                "loops": {"type": "integer", "description": "Number of loops to run (default 1)", "default": 1},
                 "note": {"type": "string", "description": "Optional note to inject into the session"},
-                "players": {"type": "integer", "description": "Number of playtesters (default: 4, range: 2-5)", "default": 4}
+                "api_delta": {"type": "number", "description": "API budget limit in dollars (e.g. 2.0). Sets the kill threshold for this session."}
             },
             "required": ["game"]
         },
@@ -1798,9 +1798,14 @@ async def wake_loop() -> None:
                     continue
                 if block.name == "start_looper":
                     _game = block.input.get("game", "")
-                    _loops = block.input.get("loops", 3)
+                    _loops = block.input.get("loops", 1)
                     _note = block.input.get("note", "")
-                    _players = block.input.get("players", 4)
+                    _api_delta = block.input.get("api_delta", None)
+                    # Set api_delta if specified (e.g. Billy says "api $2")
+                    if _api_delta is not None:
+                        _usage.setdefault("limits", {})["api_delta"] = float(_api_delta)
+                        _save_usage()
+                        log.info("start_looper: api_delta set to $%.2f", float(_api_delta))
                     # Clean stale looper entry if PID is dead
                     _stale = _usage.get("loopers", {}).get(_game)
                     if _stale and _stale.get("pid"):
@@ -1810,6 +1815,19 @@ async def wake_loop() -> None:
                             log.info("start_looper: clearing stale entry for %s (PID %s dead)", _game, _stale["pid"])
                             _usage.get("loopers", {}).pop(_game, None)
                             _save_usage()
+                    # Run preflight check via game_design_session.py
+                    import subprocess as _sp
+                    _preflight_result = _sp.run(
+                        ["/home/billy/cleo/venv/bin/python", "-c",
+                         f"import sys; sys.path.insert(0, '/home/billy'); "
+                         f"from game_design_session import preflight_check; "
+                         f"actions = preflight_check('{_game}'); "
+                         f"print('\n'.join(actions))"],
+                        capture_output=True, text=True
+                    )
+                    _preflight_notes = _preflight_result.stdout.strip()
+                    if _preflight_notes and _preflight_notes != "all clear":
+                        log.info("start_looper preflight for %s: %s", _game, _preflight_notes)
                     # Find next session number
                     import glob as _glob
                     _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
@@ -1820,14 +1838,14 @@ async def wake_loop() -> None:
                     _sess_num = max(_nums) + 1 if _nums else 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
-                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} --players {_players} {_note_arg} > {_log_file} 2>&1 & echo $!"
-                    import subprocess as _sp
+                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
                     # Store PID in usage.json
                     _usage.setdefault("loopers", {})[_game] = {"pid": _pid, "log": _log_file, "loops": _loops}
                     _save_usage()
-                    _looper_reply = f"looper started for {_game} ({_loops} loops) — PID {_pid}\nwatch it live: tail -f {_log_file}"
+                    _preflight_summary = f"\npreflight: {_preflight_notes}" if _preflight_notes and _preflight_notes != "all clear" else ""
+                    _looper_reply = f"looper started for {_game} ({_loops} loop(s)) — PID {_pid}{_preflight_summary}\nwatch: tail -f {_log_file}"
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
