@@ -427,11 +427,8 @@ def _update_usage(tokens_in: int, tokens_out: int, task_id: str | None = None) -
     _usage["api"]["session_cost"] = round(_usage["api"].get("session_cost", 0) + cost, 6)
     _usage["api"]["session_tokens_in"] = _usage["api"].get("session_tokens_in", 0) + tokens_in
     _usage["api"]["session_tokens_out"] = _usage["api"].get("session_tokens_out", 0) + tokens_out
-    # Subtract from account balance if set
-    if "account_balance" in _usage.get("api", {}):
-        _usage["api"]["account_balance"] = round(
-            _usage["api"]["account_balance"] - cost, 6
-        )
+    # Note: account_balance is not decremented here — Match runs on OAuth (no API credit cost).
+    # Only the looper (API key) decrements account_balance via game_design_session.py.
     if task_id:
         if task_id not in _usage["tasks"]:
             _usage["tasks"][task_id] = {"tokens_in": 0, "tokens_out": 0, "cost": 0.0}
