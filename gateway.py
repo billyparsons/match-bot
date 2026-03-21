@@ -1797,6 +1797,15 @@ async def wake_loop() -> None:
                     _loops = block.input.get("loops", 3)
                     _note = block.input.get("note", "")
                     _players = block.input.get("players", 4)
+                    # Clean stale looper entry if PID is dead
+                    _stale = _usage.get("loopers", {}).get(_game)
+                    if _stale and _stale.get("pid"):
+                        try:
+                            os.kill(int(_stale["pid"]), 0)
+                        except (ProcessLookupError, ValueError):
+                            log.info("start_looper: clearing stale entry for %s (PID %s dead)", _game, _stale["pid"])
+                            _usage.get("loopers", {}).pop(_game, None)
+                            _save_usage()
                     # Find next session number
                     import glob as _glob
                     _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
