@@ -1670,6 +1670,7 @@ async def wake_loop() -> None:
                      response.stop_reason, len(response.content), total_in, total_out,
                      len(iterations))
             _last_input_tokens = total_in
+            _update_usage(total_in, total_out)
         else:
             log.info("Wake API response: stop_reason=%s, %d blocks, in=%d out=%d tokens",
                      response.stop_reason, len(response.content),
@@ -1801,7 +1802,9 @@ async def wake_loop() -> None:
                     _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
                     os.makedirs(_game_dir, exist_ok=True)
                     _existing = _glob.glob(f"{_game_dir}/session_*_transcript.md")
-                    _sess_num = len(_existing) + 1
+                    import re as _re
+                    _nums = [int(_re.search(r"session_(\d+)_transcript", f).group(1)) for f in _existing if _re.search(r"session_(\d+)_transcript", f)]
+                    _sess_num = max(_nums) + 1 if _nums else 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
                     _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} --players {_players} {_note_arg} > {_log_file} 2>&1 & echo $!"
@@ -2408,7 +2411,7 @@ async def main() -> None:
         try:
             _load_feeds()
             if unread_feed_ids:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 loop.call_soon_threadsafe(
                     lambda: asyncio.ensure_future(wake_loop())
                 )
