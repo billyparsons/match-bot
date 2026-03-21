@@ -1301,7 +1301,11 @@ async def subagent_loop(sender_id: str, group_id: str | None,
         ),
         "timestamp": datetime.now().strftime("%H:%M"),
     })
-    unread_feed_ids.add(result_feed_id)
+    # Only wake Match for subagent results that came from user messages,
+    # not scheduled events (dream, heartbeat) — those subagents already
+    # messaged Billy directly; a second wake just produces a redundant reply.
+    if not origin_feed.startswith("scheduled:"):
+        unread_feed_ids.add(result_feed_id)
     _save_feeds()
 
     # Log to daily memory (rich detail for dream consolidation)
