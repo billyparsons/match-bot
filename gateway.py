@@ -1742,6 +1742,7 @@ async def wake_loop() -> None:
                     wake_log.append(f"### Tool: cancel_tasks\nResult: {result_text}")
                     continue
                 if block.name == "check_usage":
+                    _load_usage()  # reload from disk — looper writes spend here, gateway _usage is stale
                     violation = _check_limits()
                     oauth_5h = float(_usage["oauth"].get("5h", 0.0))
                     oauth_7d = float(_usage["oauth"].get("7d", 0.0))
