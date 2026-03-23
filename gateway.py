@@ -1831,7 +1831,7 @@ async def wake_loop() -> None:
                     import subprocess as _sp
                     _preflight_result = _sp.run(
                         ["/home/billy/cleo/venv/bin/python", "-c",
-                         f"import sys; sys.path.insert(0, '/home/billy'); "
+                         f"import sys; sys.path.insert(0, '/home/billy/cleo'); "
                          f"from game_design_session import preflight_check; "
                          f"actions = preflight_check('{_game}'); "
                          f"print('\n'.join(actions))"],
@@ -1850,7 +1850,7 @@ async def wake_loop() -> None:
                     _sess_num = max(_nums) + 1 if _nums else 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
-                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
+                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/cleo/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
                     # Store PID in usage.json
