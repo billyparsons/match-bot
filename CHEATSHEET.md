@@ -76,6 +76,10 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 - Sessions numbered by finding highest existing session, not counting files
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
 
+### Looper Pipeline (game_design_session.py)
+- **Agreement Gate** (`run_agreement_gate`): monitor calls monitor in MODE 3 to find consensus between knizia + thematist. Up to 2 dispute rounds. Returns agreed rules list + directive if no consensus.
+- **Scribe** (`run_scribe`): applies agreed rules to the current rulebook via scribe agent. No-ops if agreed_rules is empty.
+
 ### Looper Kill Behavior
 - **Intra-loop kill**: usage checked after EACH agent step (not just between loops) — killed mid-loop if limit breached
 - **Summarizer skipped on kill**: if a session is killed, the end-of-session summarizer is skipped entirely

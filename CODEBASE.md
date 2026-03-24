@@ -136,6 +136,14 @@ When Billy asks for a code change in plain English:
 5. Update CODEBASE.md and CHEATSHEET.md if constants or structure changed
 6. Confirm to Billy what was changed and pushed
 
+## Looper Pipeline Functions (game_design_session.py)
+Key functions in the looper's design session pipeline:
+- `run_agreement_gate(client, knizia_pos, thematist_pos, current_doc, transcript_lines, tokens, task_id)` — calls monitor in MODE 3 to find consensus between knizia and thematist designers. Up to 2 rounds of dispute resolution. Returns `(agreed_rules, directive_or_None)`. `agreed_rules` is a list of `{"section": ..., "rule_text": ...}` dicts; `directive` is set only if no consensus reached.
+- `run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task_id)` — calls scribe agent to apply `agreed_rules` to `current_doc`. Returns complete updated rulebook string. No-ops (returns doc unchanged) if `agreed_rules` is empty.
+- `run_ratification(...)` — existing ratification phase (phases 1/2)
+- `run_completeness_check(...)` — existing completeness check
+- `run_loop(...)` — main loop orchestrator; calls the above in sequence
+
 ## Doc Update Workflow
 After any significant code change is committed, Billy will text Match to update docs.
 Match should then update ALL of the following in one shot:
