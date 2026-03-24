@@ -1115,11 +1115,10 @@ Current ratified doc:
 
     thematist_iter = call_agent(client, "thematist",
         iteration_context + f"\n\nKnizia proposes:\n---\n{knizia_iter}\n---\n\n"
-        "Produce a SHORT updated packet. Adopt Knizia verbatim where you agree. "
-        "Offer full rule text where you disagree. Under 500 words total. "
-        "Core mode only. No variants or examples.\n"
-        "Output updated packet marked:\n## UPDATED DESIGN DOC",
-        tokens, max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
+        "Respond to Knizia's proposed changes (under 300 words). "
+        "For each rule proposed: agree and adopt their exact text, or counter with your own complete rule text. "
+        "Do NOT assemble a full doc. State your position on each rule only.",
+        tokens, task_id=task_id)
     log(transcript_lines, "thematist", thematist_iter)
 
     if task_id:
@@ -1127,11 +1126,16 @@ Current ratified doc:
         if killed:
             return current_doc, False, f"killed: {reason}", "killed mid-loop", False
 
-    updated_doc = ratified_doc  # fallback
-    if "## UPDATED DESIGN DOC" in thematist_iter:
-        updated_doc = thematist_iter.split("## UPDATED DESIGN DOC", 1)[1].strip()
+    # Agreement gate + scribe replaces UPDATED DESIGN DOC extraction
+    iter_agreed, iter_directive = run_agreement_gate(
+        client, knizia_iter, thematist_iter, ratified_doc,
+        transcript_lines, tokens, task_id=task_id
+    )
+    if iter_agreed:
+        updated_doc = run_scribe(client, ratified_doc, iter_agreed, transcript_lines, tokens, task_id=task_id)
     else:
-        print("[WARNING] Thematist dropped ## UPDATED DESIGN DOC marker — using ratified_doc as fallback.")
+        print("[ITERATION] No agreed changes -- ratified_doc carried forward unchanged.")
+        updated_doc = ratified_doc
 
     # ── 11. Monitor loop review ───────────────────────────────────────────────
     # Transcript tail cut from 5000 to 1500 chars — monitor has both docs, doesn't need full play-by-play

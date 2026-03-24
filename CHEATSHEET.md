@@ -77,6 +77,8 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
 
 ### Looper Pipeline (game_design_session.py)
+- **knizia_final prompt**: now asks for substantive rule text (under 300 words, actual rule text per point, no summaries). Fed directly into ratification as `knizia_pos`.
+- **Ratification call site**: passes `knizia_final` + `thematist_response` + `current_doc` separately (not a merged `designer_debate` string).
 - **Agreement Gate** (`run_agreement_gate`): monitor calls monitor in MODE 3 to find consensus between knizia + thematist. Up to 2 dispute rounds. Returns agreed rules list + directive if no consensus.
 - **Scribe** (`run_scribe`): applies agreed rules to the current rulebook via scribe agent. No-ops if agreed_rules is empty.
 
