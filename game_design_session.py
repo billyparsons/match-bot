@@ -1380,7 +1380,7 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
 
 Produce the structured session summary. Name actual rule texts, not abstractions."""
     summary = call_agent(client, "summarizer", summary_prompt, tokens,
-                         max_tokens=800, task_id=looper_task_id)
+                         max_tokens=1200, task_id=looper_task_id)
 
     transcript_lines.append(f"\n{'='*70}\n[SESSION SUMMARY]\n{'='*70}\n{summary}")
     print(f"\n{'='*70}\n[SESSION SUMMARY]\n{'='*70}\n{summary}")
