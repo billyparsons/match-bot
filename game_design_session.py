@@ -1155,6 +1155,7 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
 
     for loop_num in range(1, loops + 1):
         transcript_lines.append(f"\n{'#'*70}\n# LOOP {loop_num}\n{'#'*70}")
+        tokens_loop_start = dict(tokens)
 
         effective_note = note
         if pending_directive:
@@ -1173,7 +1174,10 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
         if lsummary:
             loop_summaries.append(f"Loop {loop_num}: {lsummary}")
 
-        loop_cost = estimate_cost(tokens)
+        loop_cost = estimate_cost({
+            "input": tokens["input"] - tokens_loop_start["input"],
+            "output": tokens["output"] - tokens_loop_start["output"],
+        })
         state["loops_completed"] += 1
 
         if approved:
