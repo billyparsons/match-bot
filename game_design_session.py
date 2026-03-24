@@ -814,88 +814,64 @@ def run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task
     return result
 
 # ── Ratification Phase ────────────────────────────────────────────────────────
-def run_ratification(client, loop_num, designer_debate,
+def run_ratification(client, loop_num, knizia_pos, thematist_pos, current_doc,
                      transcript_lines, tokens, phase=1, task_id=None):
     """
-    Co-produce a complete ratified doc from the designer debate.
-    Note: current_doc is NOT passed here — it is already embedded in the debate.
+    Agreement gate + scribe replaces single-designer ratification.
+    Signature: knizia_pos, thematist_pos, current_doc instead of designer_debate.
     Returns (ratified_doc, gate_directive_or_None).
     """
-    print(f"\n[RATIFICATION] Requesting joint pre-playtest ruleset (phase {phase})...")
+    print(f"\n[RATIFICATION] Running agreement gate (phase {phase})...")
 
-    checklist_text = format_checklist_for_designers(phase)
+    agreed_rules, gate_directive = run_agreement_gate(
+        client, knizia_pos, thematist_pos, current_doc,
+        transcript_lines, tokens, task_id=task_id
+    )
 
-    ratify_prompt = f"""Design loop {loop_num} debate is complete. Produce the PRE-PLAYTEST RULESET.
+    if not agreed_rules:
+        print("[RATIFICATION] No agreed rules -- gate failed completely.")
+        return None, gate_directive or "No consensus reached. Resolve disputed rules next loop."
 
-Your debate this loop:
----
-{designer_debate}
----
-
-This ruleset goes directly to the Playtest Runner. Every gap halts the playtest.
-
-EVERY field below MUST be explicitly and completely answered:
-{checklist_text}
-
-State the exact player count (e.g. "This game is for 2 players.").
-Components available: cards, tokens, dice, tiles. Name and state role of every component used.
-
-Do NOT write "TBD", "as discussed", or any placeholder.
-If a mechanic cannot be fully specified in one clear sentence, REMOVE IT.
-A resolved simple game gets to the table. An unresolvable complex one does not.
-Once the core is proven, complexity can be added.
-
-Write a PLAYTEST PACKET under 500 words. Core mode only. No variants, designer notes, or flavor.
-Short bullet rules and section headers only.
-Output the COMPLETE playtest packet as a single markdown document. Nothing else."""
-
-    joint_doc = call_agent(client, "thematist", ratify_prompt, tokens,
-                           max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
-    log(transcript_lines, "thematist",
-        f"[PRE-PLAYTEST RATIFICATION — Attempt 1]\n\n{joint_doc}")
+    joint_doc = run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task_id=task_id)
+    transcript_lines.append("\n[PRE-PLAYTEST RATIFICATION -- from scribe]\n\n" + joint_doc)
 
     for attempt in range(MAX_RATIFICATION_RETRIES + 1):
         passed, missing = run_completeness_check(client, joint_doc, tokens,
                                                   phase=phase, task_id=task_id)
-
         if passed:
-            print(f"[RATIFICATION] Passed on attempt {attempt + 1}. ✓")
+            print(f"[RATIFICATION] Passed on attempt {attempt + 1}. \u2713")
             return joint_doc, None
 
         if attempt == MAX_RATIFICATION_RETRIES:
             missing_labels = ", ".join(m["label"] for m in missing)
             directive = (
-                f"COMPLETENESS GATE FAILED after {MAX_RATIFICATION_RETRIES + 1} attempts. "
-                f"The design cannot be fully specified as written — not because it is too "
-                f"ambitious, but because it is not yet resolved. Knizia's best games are "
-                f"elegant, not simple. Strip every rule that is not yet fully resolved "
-                f"and replace it with one that is. A playable, fully specified core gets to "
-                f"the table. Unspecifiable complexity does not. "
-                f"Missing fields: {missing_labels}."
+                "COMPLETENESS GATE FAILED after " + str(MAX_RATIFICATION_RETRIES + 1) + " attempts. "
+                "Missing fields: " + missing_labels + ". "
+                "Designers must explicitly state rules covering these fields next loop."
             )
-            print(f"[RATIFICATION] Gate failed after max retries. Issuing directive.")
+            print("[RATIFICATION] Gate failed after max retries. Issuing directive.")
             return None, directive
 
-        missing_list = "\n".join(f"  ✗ {m['label']}: {m['reason']}" for m in missing)
+        missing_list = "\n".join("  " + m["label"] + ": " + m["reason"] for m in missing)
         print(f"\n[RATIFICATION] Attempt {attempt + 1} failed. {len(missing)} gap(s). Returning to designers.")
 
-        fix_prompt = f"""COMPLETENESS CHECK FAILED. {len(missing)} required field(s) missing.
+        knizia_fix = call_agent(client, "knizia",
+            "COMPLETENESS CHECK FAILED. These fields are missing:\n" + missing_list + "\n\n"
+            "Current doc:\n---\n" + joint_doc + "\n---\n\n"
+            "State your complete rule text for each missing field. Under 200 words.",
+            tokens, max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
+        thematist_fix = call_agent(client, "thematist",
+            "COMPLETENESS CHECK FAILED. These fields are missing:\n" + missing_list + "\n\n"
+            "Knizia proposes:\n---\n" + knizia_fix + "\n---\n\n"
+            "Agree or counter with complete rule text for each missing field. Under 200 words.",
+            tokens, max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
 
-MISSING FIELDS:
-{missing_list}
-
-Your current doc:
----
-{joint_doc}
----
-
-Fix ALL missing fields. If you cannot specify a rule in one clear sentence, remove that
-mechanic and replace with something simpler. Keep under 500 words. Output ONLY the complete doc."""
-
-        joint_doc = call_agent(client, "knizia", fix_prompt, tokens,
-                               max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
-        log(transcript_lines, "knizia",
-            f"[PRE-PLAYTEST RATIFICATION — Attempt {attempt + 2}]\n\n{joint_doc}")
+        fix_agreed, _ = run_agreement_gate(
+            client, knizia_fix, thematist_fix, joint_doc,
+            transcript_lines, tokens, task_id=task_id
+        )
+        joint_doc = run_scribe(client, joint_doc, fix_agreed or [], transcript_lines, tokens, task_id=task_id)
+        transcript_lines.append("\n[PRE-PLAYTEST RATIFICATION -- Attempt " + str(attempt + 2) + "]\n\n" + joint_doc)
 
     return None, None  # should not reach
 
