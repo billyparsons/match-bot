@@ -784,7 +784,7 @@ mechanic and replace with something simpler. Keep under 500 words. Output ONLY t
 
 # ── Main Loop ─────────────────────────────────────────────────────────────────
 def run_loop(client, loop_num, current_doc, transcript_lines, tokens,
-             note=None, task_id=None, phase=1, tested_player_count=None):
+             note=None, task_id=None, phase=1, tested_player_count=None, game=None):
     """
     Run one full design loop.
     Returns (new_doc, approved, directive, loop_summary, stable_core).
@@ -888,7 +888,7 @@ agreeing to test? What is the ONE mechanic you most need playtest feedback on?""
     if tested_player_count and actual_players != tested_player_count:
         print(f"\n[PLAYER COUNT CONFLICT] Designers propose {actual_players}, testing at {tested_player_count}.")
         _looper_notify_player_count_conflict(
-            game_name_from_doc(ratified_doc),
+            game or game_name_from_doc(ratified_doc),
             tested_player_count, actual_players
         )
         actual_players = tested_player_count
@@ -1168,7 +1168,7 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
         new_doc, approved, directive, lsummary, stable_core = run_loop(
             client, loop_num, final_doc, transcript_lines, tokens,
             note=effective_note, task_id=looper_task_id, phase=phase,
-            tested_player_count=state["tested_player_count"]
+            tested_player_count=state["tested_player_count"], game=game
         )
 
         if lsummary:
