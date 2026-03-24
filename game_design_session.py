@@ -120,7 +120,7 @@ def _notify_match(feed_id, text):
             data["unread"].append(feed_id)
         FEEDS_FILE.write_text(json.dumps(data, indent=2))
         result = subprocess.run(["pgrep", "-f", "gateway.py"], capture_output=True, text=True)
-        pid = result.stdout.strip()
+        pid = result.stdout.strip().split('\n')[0]
         if pid:
             os.kill(int(pid), signal.SIGUSR1)
     except Exception as e:
