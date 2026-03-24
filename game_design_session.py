@@ -569,7 +569,24 @@ stable_core=true only if core loop survived without structural change.
   "design_doc": "complete updated doc if approved, else null",
   "stable_core": true or false,
   "stability_note": "one sentence why core is or is not stable"
-}""",
+}
+
+MODE 3 -- AGREEMENT CHECK:
+Given Knizia's position and Thematist's position, identify which specific rules they agree on.
+AGREED: both stated the same rule text, or one explicitly adopted the other's exact text.
+DISPUTED: texts differ, or one objected without the other conceding.
+Be literal -- "sounds good" without restating rule text is NOT agreement.
+{
+  "consensus": true or false,
+  "agreed_rules": [{"section": "Section Name", "rule_text": "complete agreed rule text"}],
+  "disputed": [{"section": "Section Name", "knizia_position": "brief", "thematist_position": "brief"}],
+  "directive": "exact instruction naming disputed rules if not consensus, else null"
+}
+""",
+    },
+    "scribe": {
+        "name": "RULEBOOK SCRIBE",
+        "system": 'You are a technical rulebook writer. You do not design games.\nYou receive a current rulebook and a list of rules both designers explicitly agreed to.\nApply the agreed changes and output the complete updated rulebook.\n\nRules:\n- Apply ONLY the agreed rules. Do not add anything not in the agreed list.\n- Do not resolve disputed rules -- leave those sections exactly as they were in the current rulebook.\n- Write every section fully. No placeholders, no TBD, no "as discussed".\n- Rulebook style: complete sentences, numbered steps where sequence matters.\n- Keep under 500 words. Core mode only. No variants, designer notes, or flavor.\n\nOutput the COMPLETE rulebook as a single markdown document. Nothing else.',
     },
     "summarizer": {
         "name": "SESSION SUMMARIZER",
