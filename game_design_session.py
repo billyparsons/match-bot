@@ -588,6 +588,13 @@ Be specific. Name actual rule texts. Keep under 600 words.""",
 }
 
 
+SEATING = {
+    1: ["solo_coop"],
+    2: ["newcomer", "veteran"],
+    3: ["newcomer", "hobbyist", "veteran"],
+    4: ["newcomer", "hobbyist", "veteran", "solo_coop"],
+}
+
 # ── Core helpers ──────────────────────────────────────────────────────────────
 def call_agent(client, agent_key, prompt, tokens, max_tokens=None, task_id=None):
     """
@@ -910,12 +917,6 @@ Flag ANY gap as [AMBIGUITY: description]. Do not invent rules.""",
         print(f"\n[WARNING] Runner flagged {ambiguity_count} ambiguities.")
 
     # ── 7. Playtesters ────────────────────────────────────────────────────────
-    SEATING = {
-        1: ["solo_coop"],
-        2: ["newcomer", "veteran"],
-        3: ["newcomer", "hobbyist", "veteran"],
-        4: ["newcomer", "hobbyist", "veteran", "solo_coop"],
-    }
     active_playtesters = SEATING.get(actual_players, SEATING[2])
     print(f"\n[PLAYER COUNT] {actual_players} player(s) — seating: {', '.join(active_playtesters)}")
 
