@@ -414,16 +414,9 @@ def _load_usage() -> None:
 
 def _save_usage() -> None:
     try:
-        # looper_spend_today is written by the looper process (not gateway).
-        # Read disk value before writing so we never clobber it with stale in-memory zero.
-        try:
-            with open(USAGE_FILE, "r") as f:
-                disk_data = json.load(f)
-            disk_spend = float(disk_data.get("api", {}).get("looper_spend_today", 0.0))
-            mem_spend  = float(_usage.get("api", {}).get("looper_spend_today", 0.0))
-            _usage.setdefault("api", {})["looper_spend_today"] = max(disk_spend, mem_spend)
-        except Exception:
-            pass
+        # looper_spend_today is written directly to disk by the looper (never by gateway).
+        # Dream resets it by setting _usage["api"]["looper_spend_today"] = 0.0 then calling
+        # _save_usage(). Do NOT read disk here -- that would cancel dream resets.
         tmp = USAGE_FILE + ".tmp"
         with open(tmp, "w") as f:
             json.dump(_usage, f, indent=2)
