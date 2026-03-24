@@ -1225,7 +1225,6 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
         if isinstance(directive, str) and directive.startswith("killed:"):
             _looper_mark_killed(looper_task_id)
             _looper_notify_kill(looper_task_id, directive.replace("killed: ", ""))
-            _looper_usage_done(looper_task_id)
             break
 
         # 2. End-of-loop cost kill
@@ -1234,7 +1233,6 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
             print(f"\n\U0001f6a8 LOOPER KILLED \u2014 {_reason}")
             _looper_mark_killed(looper_task_id)
             _looper_notify_kill(looper_task_id, _reason)
-            _looper_usage_done(looper_task_id)
             break
 
         # 3. Normal completion — notify loop done
