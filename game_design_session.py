@@ -719,6 +719,100 @@ Output ONLY this JSON:
     return passed, missing
 
 
+
+# ── Agreement Gate ────────────────────────────────────────────────────────────
+def run_agreement_gate(client, knizia_pos, thematist_pos, current_doc,
+                       transcript_lines, tokens, task_id=None):
+    """
+    Call monitor in MODE 3 to find consensus between designers.
+    Up to 2 rounds of dispute resolution.
+    Returns (agreed_rules, directive_or_None).
+    agreed_rules is a list of {"section": ..., "rule_text": ...} dicts.
+    directive is set if no consensus after max rounds, else None.
+    """
+    MAX_GATE_ROUNDS = 2
+    knizia_current = knizia_pos
+    thematist_current = thematist_pos
+
+    for round_num in range(1, MAX_GATE_ROUNDS + 1):
+        print(f"\n[AGREEMENT GATE] Round {round_num}/{MAX_GATE_ROUNDS}...")
+        prompt = (
+            "MODE 3 -- AGREEMENT CHECK\n\n"
+            f"Knizia position:\n---\n{knizia_current}\n---\n\n"
+            f"Thematist position:\n---\n{thematist_current}\n---\n\n"
+            "Identify which specific rules they explicitly agree on and which are disputed.\n"
+            "Output ONLY the JSON object."
+        )
+        response = call_agent(client, "monitor", prompt, tokens,
+                              max_tokens=MAX_TOKENS_MONITOR, task_id=task_id)
+        transcript_lines.append(
+            f"\n[AGREEMENT GATE round {round_num}]\n{response}"
+        )
+        data = parse_json_response(response)
+        if data is None:
+            print("[AGREEMENT GATE] Could not parse monitor JSON. Treating as no consensus.")
+            return [], "Agreement gate monitor response was not valid JSON."
+
+        agreed_rules = data.get("agreed_rules", [])
+        disputed = data.get("disputed", [])
+        consensus = data.get("consensus", False)
+        directive = data.get("directive")
+
+        print(f"[AGREEMENT GATE] Consensus: {consensus} | Agreed: {len(agreed_rules)} | Disputed: {len(disputed)}")
+
+        if consensus or (agreed_rules and not disputed):
+            print("[AGREEMENT GATE] Consensus reached. ✓")
+            return agreed_rules, None
+
+        if round_num == MAX_GATE_ROUNDS:
+            print(f"[AGREEMENT GATE] No consensus after {MAX_GATE_ROUNDS} rounds.")
+            return agreed_rules, directive or "Designers could not reach consensus. Disputed rules left unchanged."
+
+        # Another round — designers address disputed points
+        disputed_summary = "; ".join(
+            f"{d['section']}: Knizia={d.get('knizia_position','?')} vs Thematist={d.get('thematist_position','?')}"
+            for d in disputed
+        )
+        print(f"[AGREEMENT GATE] Disputed: {disputed_summary}")
+        knizia_current = call_agent(client, "knizia",
+            f"These rules are still disputed after round {round_num}:\n{disputed_summary}\n\n"
+            "For each disputed rule: either adopt the Thematist's exact text, or restate your "
+            "complete rule text. No summaries. Write actual rule text only. Under 200 words.",
+            tokens, task_id=task_id)
+        thematist_current = call_agent(client, "thematist",
+            f"These rules are still disputed after round {round_num}:\n{disputed_summary}\n\n"
+            f"Knizia now says:\n{knizia_current}\n\n"
+            "For each disputed rule: either adopt Knizia's exact text, or restate your "
+            "complete rule text. No summaries. Write actual rule text only. Under 200 words.",
+            tokens, task_id=task_id)
+
+    return agreed_rules, directive
+
+
+def run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task_id=None):
+    """
+    Call scribe agent to apply agreed_rules to current_doc.
+    Returns complete updated rulebook string.
+    """
+    if not agreed_rules:
+        print("[SCRIBE] No agreed rules to apply — returning current doc unchanged.")
+        return current_doc
+
+    agreed_text = "\n".join(
+        f"- {r['section']}: {r['rule_text']}" for r in agreed_rules
+    )
+    prompt = (
+        f"Current rulebook:\n---\n{current_doc}\n---\n\n"
+        f"Agreed rules to apply:\n{agreed_text}\n\n"
+        "Apply ONLY these agreed rules. Leave all other sections exactly as written. "
+        "Output the COMPLETE updated rulebook as a single markdown document. Nothing else."
+    )
+    result = call_agent(client, "scribe", prompt, tokens,
+                        max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
+    transcript_lines.append(f"\n[SCRIBE OUTPUT]\n{result}")
+    print("[SCRIBE] Rulebook updated. ✓")
+    return result
+
 # ── Ratification Phase ────────────────────────────────────────────────────────
 def run_ratification(client, loop_num, designer_debate,
                      transcript_lines, tokens, phase=1, task_id=None):
