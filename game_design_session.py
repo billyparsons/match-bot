@@ -870,6 +870,11 @@ agreeing to test? What is the ONE mechanic you most need playtest feedback on?""
     tokens, task_id=task_id)
     log(transcript_lines, "knizia", knizia_final)
 
+    if task_id:
+        killed, reason = check_kill("knizia final")
+        if killed:
+            return current_doc, False, f"killed: {reason}", "killed mid-loop", False
+
     designer_debate = f"{knizia_open}\n\n{thematist_response}\n\n{knizia_final}"
 
     # ── 4. Ratification phase ─────────────────────────────────────────────────
@@ -911,6 +916,11 @@ Present: setup, one example turn, key system, win condition.
 Flag ANY gap as [AMBIGUITY: description]. Do not invent rules.""",
     tokens, task_id=task_id)
     log(transcript_lines, "runner", runner_present)
+
+    if task_id:
+        killed, reason = check_kill("runner present")
+        if killed:
+            return current_doc, False, f"killed: {reason}", "killed mid-loop", False
 
     ambiguity_count = runner_present.count("[AMBIGUITY:")
     if ambiguity_count >= 3:
@@ -1012,6 +1022,11 @@ Current ratified doc:
         tokens, task_id=task_id)
     log(transcript_lines, "knizia", knizia_iter)
 
+    if task_id:
+        killed, reason = check_kill("knizia iter")
+        if killed:
+            return current_doc, False, f"killed: {reason}", "killed mid-loop", False
+
     thematist_iter = call_agent(client, "thematist",
         iteration_context + f"\n\nKnizia proposes:\n---\n{knizia_iter}\n---\n\n"
         "Produce a SHORT updated packet. Adopt Knizia verbatim where you agree. "
@@ -1020,6 +1035,11 @@ Current ratified doc:
         "Output updated packet marked:\n## UPDATED DESIGN DOC",
         tokens, max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
     log(transcript_lines, "thematist", thematist_iter)
+
+    if task_id:
+        killed, reason = check_kill("thematist iter")
+        if killed:
+            return current_doc, False, f"killed: {reason}", "killed mid-loop", False
 
     updated_doc = ratified_doc  # fallback
     if "## UPDATED DESIGN DOC" in thematist_iter:
