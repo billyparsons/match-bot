@@ -1023,6 +1023,8 @@ Current ratified doc:
     updated_doc = ratified_doc  # fallback
     if "## UPDATED DESIGN DOC" in thematist_iter:
         updated_doc = thematist_iter.split("## UPDATED DESIGN DOC", 1)[1].strip()
+    else:
+        print("[WARNING] Thematist dropped ## UPDATED DESIGN DOC marker — using ratified_doc as fallback.")
 
     # ── 11. Monitor loop review ───────────────────────────────────────────────
     # Transcript tail cut from 5000 to 1500 chars — monitor has both docs, doesn't need full play-by-play
