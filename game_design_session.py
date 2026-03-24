@@ -952,8 +952,9 @@ with full rule text.""",
 {thematist_response}
 ---
 
-Give your final pre-playtest position in 3-5 sentences. What player count are you
-agreeing to test? What is the ONE mechanic you most need playtest feedback on?""",
+Reply directly to Thematist's points (under 300 words).
+For each rule they proposed: agree and adopt their exact text, or counter with your own complete rule text.
+Do not summarize. Write actual rule text for every point you address.""",
     tokens, task_id=task_id)
     log(transcript_lines, "knizia", knizia_final)
 
@@ -962,13 +963,11 @@ agreeing to test? What is the ONE mechanic you most need playtest feedback on?""
         if killed:
             return current_doc, False, f"killed: {reason}", "killed mid-loop", False
 
-    designer_debate = f"{knizia_open}\n\n{thematist_response}\n\n{knizia_final}"
-
     # ── 4. Ratification phase ─────────────────────────────────────────────────
     print("\n[RATIFICATION PHASE]")
     ratified_doc, gate_directive = run_ratification(
-        client, loop_num, designer_debate, transcript_lines, tokens,
-        phase=phase, task_id=task_id
+        client, loop_num, knizia_final, thematist_response, current_doc,
+        transcript_lines, tokens, phase=phase, task_id=task_id
     )
     if gate_directive:
         print(f"\n[GATE FAILED] Playtest skipped. Directive carries to next loop.")
