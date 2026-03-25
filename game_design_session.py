@@ -783,12 +783,16 @@ def run_agreement_gate(client, knizia_pos, thematist_pos, current_doc,
             "For each disputed rule: either adopt the Thematist's exact text, or restate your "
             "complete rule text. No summaries. Write actual rule text only. Under 200 words.",
             tokens, task_id=task_id)
+        transcript_lines.append(f"\n[AGREEMENT GATE round {round_num} — KNIZIA]\n{knizia_current}")
+        print(f"\n[AGREEMENT GATE — KNIZIA round {round_num}]\n{knizia_current}")
         thematist_current = call_agent(client, "thematist",
             f"These rules are still disputed after round {round_num}:\n{disputed_summary}\n\n"
             f"Knizia now says:\n{knizia_current}\n\n"
             "For each disputed rule: either adopt Knizia's exact text, or restate your "
             "complete rule text. No summaries. Write actual rule text only. Under 200 words.",
             tokens, task_id=task_id)
+        transcript_lines.append(f"\n[AGREEMENT GATE round {round_num} — THEMATIST]\n{thematist_current}")
+        print(f"\n[AGREEMENT GATE — THEMATIST round {round_num}]\n{thematist_current}")
 
     return agreed_rules, directive
 

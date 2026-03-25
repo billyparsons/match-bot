@@ -142,7 +142,7 @@ Key functions in the looper's design session pipeline:
 - `run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task_id)` — calls scribe agent to apply `agreed_rules` to `current_doc`. Returns complete updated rulebook string. No-ops (returns doc unchanged) if `agreed_rules` is empty.
 - `run_ratification(client, loop_num, knizia_pos, thematist_pos, current_doc, transcript_lines, tokens, phase, task_id)` — wrapper around `run_agreement_gate` + `run_scribe`. Takes separate `knizia_pos` and `thematist_pos` strings (not a merged `designer_debate`). `knizia_pos` is now the knizia_final response (substantive rule text, not a summary position). Returns `(ratified_doc, gate_directive_or_None)`.
 - `run_completeness_check(...)` — existing completeness check
-- `run_loop(...)` — main loop orchestrator; calls the above in sequence
+- `run_loop(...)` — main loop orchestrator; calls the above in sequence. **Seed update behavior**: approved loops write `final_doc` to `current_seed.md`. Unapproved loops still write scribe's output to seed if it differs from `current_doc`, so next session always builds on the latest agreed rules. Gate failure returns best available doc (scribe output if present, else `current_doc`).
 
 ## Doc Update Workflow
 After any significant code change is committed, Billy will text Match to update docs.

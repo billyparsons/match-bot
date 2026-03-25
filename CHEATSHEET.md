@@ -81,6 +81,7 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 - **Ratification call site**: passes `knizia_final` + `thematist_response` + `current_doc` separately (not a merged `designer_debate` string).
 - **Agreement Gate** (`run_agreement_gate`): monitor calls monitor in MODE 3 to find consensus between knizia + thematist. Up to 2 dispute rounds. **Partial consensus proceeds**: if any rules are agreed, scribe applies those + skips disputed. Full consensus = directive is None. Partial = directive carries "Disputed rules left unchanged — resolve next loop." No agreed rules after max rounds = returns empty list.
 - **Scribe** (`run_scribe`): applies agreed rules to the current rulebook via scribe agent. No-ops if agreed_rules is empty.
+- **Seed update behavior**: On approved loops, `current_seed.md` is written with `final_doc`. On unapproved loops, if scribe produced output, that output is still written to seed so the next session builds on agreed rules (not the original seed). Gate failure returns best available doc (scribe output if it exists, else current_doc).
 
 ### Looper Kill Behavior
 - **Intra-loop kill**: usage checked after EACH agent step (not just between loops) — killed mid-loop if limit breached
