@@ -1872,7 +1872,7 @@ async def wake_loop() -> None:
                     if _looper_info and _looper_info.get("pid"):
                         _pid = _looper_info["pid"]
                         import subprocess as _sp
-                        _sp.run(f"kill {_pid} 2>/dev/null || true", shell=True)
+                        _sp.run(f"kill -9 {_pid} 2>/dev/null || true", shell=True)
                         _usage.get("loopers", {}).pop(_game, None)
                         _save_usage()
                         _stop_reply = f"looper {_game} (PID {_pid}) killed"
