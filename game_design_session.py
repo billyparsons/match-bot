@@ -1242,6 +1242,9 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
 
     phase = phase_override if phase_override is not None else state["phase"]
 
+    preflight_actions = preflight_check(game)
+    print("[PREFLIGHT]", " | ".join(preflight_actions))
+
     if not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
     client = anthropic.Anthropic(api_key=get_api_key())
