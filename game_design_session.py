@@ -81,6 +81,13 @@ def _looper_should_kill(task_id):
         api_delta = float(data.get("limits", {}).get("api_delta", 1.00))
         if _current_session_cost >= api_delta:
             return True, f"looper {task_id} spent ${_current_session_cost:.4f} (limit: ${api_delta:.2f})"
+        # 80% warning -- fire once per session via flag file
+        warn_threshold = api_delta * 0.8
+        warn_flag = USAGE_FILE.parent / f".warned80_{task_id}"
+        if _current_session_cost >= warn_threshold and not warn_flag.exists():
+            warn_flag.write_text('warned')
+            _notify_match(f'system:warn:{task_id}',
+                f'warning looper {task_id} at ${_current_session_cost:.4f} -- 80% of ${api_delta:.2f} limit. will kill soon unless you raise the limit.')
         return False, ""
     except Exception:
         return False, ""
@@ -103,6 +110,8 @@ def _looper_clear_kill_flag(task_id):
     try:
         flag_file = USAGE_FILE.parent / f".killed_{task_id}"
         flag_file.unlink(missing_ok=True)
+        warn_flag = USAGE_FILE.parent / f".warned80_{task_id}"
+        warn_flag.unlink(missing_ok=True)
     except Exception:
         pass
 
