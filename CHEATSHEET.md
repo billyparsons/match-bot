@@ -139,6 +139,7 @@ scp billy@172.31.202.15:~/game-sessions/backprop/session_001_summary.md C:\Users
 - Each task snapshots its baseline at start; limits measured from that baseline, not total session
 - **Subagents** monitored against `oauth_delta` (they use OAuth); **Loopers** monitored against `api_delta` (they use API credits)
 - Passive kill: tasks auto-killed if they exceed their delta limit mid-run; system feed injected to notify Match
+- **`check_usage` violation kill**: if Match calls `check_usage` and a limit is violated, ALL subagents AND all active loopers are killed (looper PIDs sent SIGKILL, `loopers` cleared in usage.json)
 - Per-task delta usage shown in `check_usage` output (`active_tasks` field)
 
 ## OAuth Billing Fix (applied 2026-03-17)
