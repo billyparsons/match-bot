@@ -1064,6 +1064,8 @@ Do NOT invent rules."""
 
     # ── 8. Critic ─────────────────────────────────────────────────────────────
     # Receives truncated doc and truncated playtester reports
+    hobbyist_snippet = f" | HOBBYIST: {hobbyist_play[:250]}" if hobbyist_play != "(not run)" else ""
+    solo_snippet = f" | SOLO: {solo_play[:250]}" if solo_play != "(not run)" else ""
     critic_review = call_agent(client, "critic", f"""Observed a playtest.
 
 Design doc (summary):
@@ -1071,7 +1073,7 @@ Design doc (summary):
 {ratified_doc[:1500]}
 ---
 
-Reports: NEWCOMER: {newcomer_play[:250]} | VETERAN: {veteran_play[:250]}
+Reports: NEWCOMER: {newcomer_play[:250]} | VETERAN: {veteran_play[:250]}{hobbyist_snippet}{solo_snippet}
 
 Commercial assessment: hook, shelf appeal, replayability, target audience.""",
     tokens, task_id=task_id)

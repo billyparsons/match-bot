@@ -67,7 +67,7 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 ```
 
 ### Looper Tools
-- `start_looper` — launches looper in background; runs preflight check automatically before launch
+- `start_looper` — launches looper in background; `preflight_check()` now runs at session start (was defined but never called before). Auto-heals: restores corrupted seed from last approved doc, clears stale kill flags, clears stale task entries in usage.json. Logged to terminal as `[PREFLIGHT]`.
   - `loops` param: default **1** (changed from 3)
   - `api_delta` param: optional budget in dollars (e.g. `api_delta: 2.0`) — overrides default $1.00 kill threshold for this session. Say "api $2" and Match will pass it through.
   - `note` param: optional note to inject into the session
