@@ -1774,7 +1774,15 @@ async def wake_loop() -> None:
                     }
                     if violation:
                         cancel_all_subagents()
-                        usage_report["action"] = f"LIMIT EXCEEDED — all subagents cancelled: {violation['msg']}"
+                        import subprocess as _ksp
+                        for _lgame, _linfo in list(_usage.get('loopers', {}).items()):
+                            _lpid = _linfo.get('pid')
+                            if _lpid:
+                                _ksp.run(f'kill -9 {_lpid} 2>/dev/null || true', shell=True)
+                                log.info('check_usage: killed looper %s PID %s', _lgame, _lpid)
+                        _usage['loopers'] = {}
+                        _save_usage()
+                        usage_report["action"] = f"LIMIT EXCEEDED -- all subagents and loopers killed: {violation['msg']}"
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
@@ -1790,7 +1798,7 @@ async def wake_loop() -> None:
                         _confirm = f"oauth delta limit set to {_limit_value:.0f}% — subagents will be killed if they consume more than {_limit_value:.0f}% of the 5h session window from their start point"
                     elif _limit_type == "api":
                         _usage["limits"]["api_delta"] = round(_limit_value, 4)
-                        _confirm = f"api delta limit set to ${_limit_value:.2f} — subagents will be killed if they spend more than ${_limit_value:.2f} from their start point"
+                        _confirm = f"api delta limit set to ${_limit_value:.2f} — loopers will be killed if they spend more than ${_limit_value:.2f} from their start point"
                     else:
                         _confirm = f"unknown limit type: {_limit_type}"
                     _save_usage()
