@@ -477,7 +477,7 @@ def _check_task_limits(task_id: str) -> dict | None:
         }
     # Check API delta
     baseline_api = task.get("baseline_api_cost", 0.0)
-    current_api = _usage["api"].get("session_cost", 0.0)
+    current_api = _usage["api"].get("looper_spend_today", 0.0)
     api_used = current_api - baseline_api
     if task_type == "looper" and api_used >= api_delta:
         return {
