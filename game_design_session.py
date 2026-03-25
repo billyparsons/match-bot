@@ -760,13 +760,17 @@ def run_agreement_gate(client, knizia_pos, thematist_pos, current_doc,
 
         print(f"[AGREEMENT GATE] Consensus: {consensus} | Agreed: {len(agreed_rules)} | Disputed: {len(disputed)}")
 
-        if consensus or (agreed_rules and not disputed):
-            print("[AGREEMENT GATE] Consensus reached. ✓")
-            return agreed_rules, None
+        if agreed_rules:
+            if not disputed:
+                print("[AGREEMENT GATE] Full consensus reached. ✓")
+                return agreed_rules, None
+            elif consensus or round_num == MAX_GATE_ROUNDS:
+                print(f"[AGREEMENT GATE] Partial consensus -- {len(agreed_rules)} agreed, {len(disputed)} disputed. Scribe applies agreed rules only.")
+                return agreed_rules, directive or "Disputed rules left unchanged -- resolve next loop."
 
-        if round_num == MAX_GATE_ROUNDS:
+        if round_num == MAX_GATE_ROUNDS and not agreed_rules:
             print(f"[AGREEMENT GATE] No consensus after {MAX_GATE_ROUNDS} rounds.")
-            return agreed_rules, directive or "Designers could not reach consensus. Disputed rules left unchanged."
+            return [], directive or "Designers could not reach consensus. Disputed rules left unchanged."
 
         # Another round — designers address disputed points
         disputed_summary = "; ".join(
