@@ -1553,7 +1553,29 @@ async def wake_loop() -> None:
             "required": ["game"]
         },
     }
-    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL, SET_LIMIT_TOOL, START_LOOPER_TOOL, STOP_LOOPER_TOOL]
+    ADVANCE_GAME_TOOL = {
+        "name": "advance_game",
+        "description": "Confirm a pending phase advancement for a game. Use when Billy says 'advance [game]' in response to a phase advancement notification.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "game": {"type": "string", "description": "Game name (e.g. backprop)"}
+            },
+            "required": ["game"]
+        },
+    }
+    EXPAND_GAME_TOOL = {
+        "name": "expand_game",
+        "description": "Confirm a pending player count expansion for a game. Use when Billy says 'expand [game]' in response to a player count conflict notification.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "game": {"type": "string", "description": "Game name (e.g. backprop)"}
+            },
+            "required": ["game"]
+        },
+    }
+    tools = list(WAKE_TOOL_DEFINITIONS) + [CANCEL_TOOL, CHECK_USAGE_TOOL, SET_LIMIT_TOOL, START_LOOPER_TOOL, STOP_LOOPER_TOOL, ADVANCE_GAME_TOOL, EXPAND_GAME_TOOL]
     if tools:
         tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
 
@@ -1884,6 +1906,44 @@ async def wake_loop() -> None:
                         "content": _stop_reply,
                     })
                     wake_log.append(f"### Tool: stop_looper\n{_stop_reply}")
+                    continue
+                if block.name == "advance_game":
+                    _game = block.input.get("game", "")
+                    import subprocess as _sp
+                    _adv = _sp.run(
+                        ["/home/billy/cleo/venv/bin/python",
+                         "/home/billy/cleo/game_design_session.py",
+                         "--game", _game, "--advance"],
+                        capture_output=True, text=True
+                    )
+                    _adv_reply = _adv.stdout.strip() or _adv.stderr.strip() or f"advance ran for {_game}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _adv_reply,
+                    })
+                    wake_log.append(f"### Tool: advance_game\n{_adv_reply}")
+                    continue
+                if block.name == "expand_game":
+                    _game = block.input.get("game", "")
+                    _game_dir = os.path.expanduser(f"~/game-sessions/{_game}")
+                    _state_file = os.path.join(_game_dir, "state.json")
+                    try:
+                        with open(_state_file) as _sf:
+                            _state = json.load(_sf)
+                        _state["expand_pending"] = False
+                        _state["tested_player_count"] = None
+                        with open(_state_file, "w") as _sf:
+                            json.dump(_state, _sf, indent=2)
+                        _exp_reply = f"player count expansion confirmed for {_game} -- tested_player_count reset, designers may now propose new count"
+                    except Exception as _exp_e:
+                        _exp_reply = f"expand_game failed: {_exp_e}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": _exp_reply,
+                    })
+                    wake_log.append(f"### Tool: expand_game\n{_exp_reply}")
                     continue
                 if block.name == "delegate_task":
                     # Special case: launch subagent in background
