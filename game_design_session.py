@@ -1147,6 +1147,8 @@ Current ratified doc:
     else:
         print("[ITERATION] No agreed changes -- ratified_doc carried forward unchanged.")
         updated_doc = ratified_doc
+    if iter_directive:
+        print(f"[ITERATION DIRECTIVE] {iter_directive}")
 
     # ── 11. Monitor loop review ───────────────────────────────────────────────
     # Transcript tail cut from 5000 to 1500 chars — monitor has both docs, doesn't need full play-by-play
