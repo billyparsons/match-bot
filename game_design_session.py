@@ -978,7 +978,10 @@ Do not summarize. Write actual rule text for every point you address.""",
         transcript_lines.append(
             f"\n[GATE FAILED — playtest skipped]\nDirective: {gate_directive}"
         )
-        return current_doc, False, gate_directive, "Completeness gate failed.", False
+        # Return ratified_doc if scribe produced something, else current_doc
+        # This ensures the seed advances even on gate failure
+        best_doc = ratified_doc if ratified_doc else current_doc
+        return best_doc, False, gate_directive, "Completeness gate failed.", False
 
     if task_id:
         killed, reason = check_kill("ratification")
@@ -1330,12 +1333,18 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
             print(f"\n⚠ Loop {loop_num} not approved.")
             advance_pending = False
             pending_directive = directive
+            # Write scribe's best output to seed even on unapproved loops
+            # so next session builds on current agreed rules, not the original seed
+            if new_doc and new_doc != current_doc:
+                print(f"[SEED] Updating seed with scribe output despite non-approval.")
+                seed_file.write_text(new_doc)
 
         save_state(game, state)
 
         transcript_file.write_text("\n".join(transcript_lines))
         design_doc_file.write_text(final_doc)
-        seed_file.write_text(final_doc)
+        if approved:
+            seed_file.write_text(final_doc)
 
         print_cost(tokens)
 
