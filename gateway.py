@@ -1875,7 +1875,7 @@ async def wake_loop() -> None:
                     _sess_num = max(_nums) + 1 if _nums else 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
-                    _cmd = f"nohup /home/billy/cleo/venv/bin/python ~/cleo/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
+                    _cmd = f"nohup /home/billy/cleo/venv/bin/python /home/billy/cleo/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
                     # Store PID in usage.json
