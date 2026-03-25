@@ -1251,6 +1251,8 @@ async def subagent_loop(sender_id: str, group_id: str | None,
                 feeds[f"system:kill:{task_id}"]["unread_count"] = 1
                 unread_feed_ids.add(f"system:kill:{task_id}")
                 _save_feeds()
+                # Wake Match so she can relay the kill notification to Billy
+                asyncio.ensure_future(wake_loop())
                 return
 
             # Build assistant message
