@@ -88,6 +88,7 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
 
 ### Looper Kill Behavior
 - **Intra-loop kill**: usage checked after EACH agent step (not just between loops) — killed mid-loop if limit breached
+- **80% warning**: when a looper hits 80% of its `api_delta` budget, Match gets a `system:warn:<task_id>` feed notification — fires once per session via a flag file. Gives a chance to raise the limit before the kill.
 - **Summarizer skipped on kill**: if a session is killed, the end-of-session summarizer is skipped entirely
 - **Iteration tokens**: 1200 per agent call (patch/doc-update calls get 4000)
 - **Loop cost**: reported as per-loop cost (tokens used in that loop only), not cumulative session cost
