@@ -307,8 +307,7 @@ def preflight_check(game):
 
     # 2. Clean stale kill flag files for this game
     try:
-        import glob as _glob2
-        for flag in _glob2.glob(str(USAGE_FILE.parent / f".killed_{game}-*")):
+        for flag in _glob.glob(str(USAGE_FILE.parent / f".killed_{game}-*")):
             Path(flag).unlink(missing_ok=True)
             actions.append(f"cleared stale kill flag: {Path(flag).name}")
     except Exception as e:
@@ -328,7 +327,7 @@ def preflight_check(game):
     except Exception as e:
         actions.append(f"task cleanup failed: {e}")
 
-    # 3. Verify state.json loops_completed matches actual transcript count
+    # 4. Verify state.json loops_completed matches actual transcript count
     try:
         state = load_state(game)
         actual_sessions = len(list(game_dir.glob("session_*_transcript.md")))
