@@ -73,6 +73,8 @@ cat ~/game-sessions/backprop/session_001_summary.md       # view summary
   - `note` param: optional note to inject into the session
   - `players` param: **removed** (was default 4; now handled internally by game_design_session.py)
 - `stop_looper` — kills a running looper session by game name
+- `advance_game` — confirms a pending phase advancement (use when looper asks "advance backprop?"). Say "advance backprop" to Match.
+- `expand_game` — confirms a pending player count expansion (use when looper asks about player count conflict). Say "expand backprop" to Match. Resets `tested_player_count` + clears `expand_pending` in state.json.
 - Sessions numbered by finding highest existing session, not counting files
 - Logs: ~/game-sessions/{game}/session_NNN_looper.log
 

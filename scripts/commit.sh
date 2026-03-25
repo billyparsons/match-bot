@@ -13,4 +13,17 @@ git add -A
 git commit -m "${1:-update}"
 git push
 echo "Pushed to GitHub"
-/home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "commit: \"${1:-update}\" — review for doc updates per CODEBASE.md doc update workflow. update CHEATSHEET.md if behavior changed. text me when done or if nothing needed."
+
+# Only notify Match for user-facing changes
+# Keywords that indicate Match should be told: new tool, new feature, changed behavior
+MSG="${1:-update}"
+if echo "$MSG" | grep -qiE "feat:|new tool|new feature|add.*tool|tool.*add|behavior|default|workflow|breaking"; then
+    /home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "commit: \"$MSG\" — this looks like a user-facing change. update CODEBASE.md and CHEATSHEET.md if needed. text me when done or if nothing needed."
+else
+    # Still send SIGUSR1 so Match knows the commit happened, but no feed injection
+    PID=$(pgrep -f gateway.py | head -1)
+    if [ -n "$PID" ]; then
+        kill -USR1 "$PID"
+        echo "Feed injected and SIGUSR1 sent to cleo (PID $PID)"
+    fi
+fi

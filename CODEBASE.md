@@ -106,7 +106,8 @@ Code handles automatically after dream completes:
 exec_command, read_file, write_file, edit_file, send_message, web_search, web_fetch,
 memory_search, find_files, delegate_task, cancel_tasks, check_feeds, read_feed,
 send_reaction, send_poll, generate_image, describe_image, schedule_reminder,
-check_quota, restart_self, check_usage, set_usage_limit
+check_quota, restart_self, check_usage, set_usage_limit,
+advance_game, expand_game
 
 ## Subagent System
 - `delegate_task` launches background subagents with their own isolated conversation
