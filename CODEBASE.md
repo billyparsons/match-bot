@@ -117,6 +117,7 @@ advance_game, expand_game
 - Billing header is injected into subagent system prompts (same OAuth fix as main loop)
 - Results injected as `subagent:<task_id>` feed → wakes main loop for reporting
 - `cancel_tasks` tool cancels all running asyncio subagent tasks (dynamically injected per wake)
+- **Subagent timeout watchdog**: if a subagent hasn't completed within 45 minutes, gateway injects a `system:timeout:<task_id>` feed to warn Match. Allows Match to investigate or cancel hung tasks before they idle indefinitely.
 
 ## Vector Memory (vectorstore.py / ChromaDB)
 - Initialized at startup: `init_vectorstore()` + `index_memory_files()` indexes all workspace memory
