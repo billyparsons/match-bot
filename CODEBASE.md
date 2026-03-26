@@ -57,7 +57,7 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 - Limits are **delta-based** (per-task): configurable in `usage.json` under `limits`: `oauth_delta` (fraction of 5h window, default 0.15 = 15%), `api_delta` (dollars, default $1.00)
 - Each subagent task snapshots `baseline_oauth_5h` and `baseline_api_cost` at start; limits measured from baseline
 - Passive kill: if a subagent exceeds its delta limits mid-iteration, it is killed and a `system:kill:<task_id>` feed is injected to notify Match
-- **Safe push on kill**: before killing a subagent, gateway iterates both known repos and runs their `safe_push.sh` if it exists — `~/cleo/scripts/safe_push.sh` and `~/match-spark/scripts/safe_push.sh`. Each is called with `"autosave before kill"`. Timeout 30s per script. Failure is logged as warning but does not block the kill. The cleo `safe_push.sh` commits in-progress cleo code; the match-spark one commits website work.
+- **Safe push on kill**: before killing a subagent, gateway iterates known repos and runs their `safe_push.sh` if it exists — `~/cleo/scripts/safe_push.sh`, `~/match-spark/scripts/safe_push.sh`, and `~/murmur-looper/scripts/safe_push.sh`. Each is called with `"autosave before kill"`. Timeout 30s per script. Failure is logged as warning but does not block the kill.
 - **Looper 80% warning**: when a looper hits 80% of its `api_delta` budget, a `system:warn:<task_id>` feed is injected (fires once per session via `.warned80_<task_id>` flag file). Flag cleared on normal session completion. Gives Match a chance to raise the limit before the kill.
 - OAuth utilization fed in from `_update_rate_limits()` (parsed from response headers)
 
@@ -142,6 +142,16 @@ When Billy asks for a code change in plain English:
 4. ~/cleo/scripts/commit.sh "description"
 5. Update CODEBASE.md if constants or structure changed
 6. Confirm to Billy what was changed and pushed
+
+## start_looper Tool
+The `start_looper` tool handles both game design and campaign loopers. Uses a `_LOOPER_SCRIPTS` lookup table inside `gateway.py` — add new games there.
+
+| game | script | extra params |
+|------|--------|-------------|
+| `backprop` | `~/cleo/game_design_session.py` | `loops`, `note` |
+| `murmur` | `~/murmur-looper/scripts/looper.py` | `campaign` (default: infinite-costco), `players` (default: 3), `loops` = turns |
+
+Unknown game names return an error listing known games. Murmur looper passes `--api-delta` flag directly so it can self-enforce its budget.
 
 ## Looper Pipeline Functions (game_design_session.py)
 Key functions in the looper's design session pipeline:
