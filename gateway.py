@@ -1158,6 +1158,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
             "task_type": "subagent",
             "baseline_oauth_5h": float(_usage["oauth"].get("5h", 0.0)),
             "baseline_api_cost": float(_usage["api"].get("session_cost", 0.0)),
+            "started_at": time.time(),
         }
         _save_usage()
     log.info("Subagent %s starting for %s in %s: %s",
@@ -2565,6 +2566,34 @@ async def main() -> None:
     # Restore and re-register persisted reminders
     _load_reminders()
     _register_reminders_on_startup()
+
+    # Subagent timeout watchdog — checks every 5 minutes for hung subagents
+    SUBAGENT_TIMEOUT_SECONDS = 45 * 60  # 45 minutes
+    async def subagent_watchdog():
+        while True:
+            await asyncio.sleep(300)  # check every 5 minutes
+            now = time.time()
+            for tid, tdata in list(_usage.get("tasks", {}).items()):
+                started = tdata.get("started_at")
+                if not started:
+                    continue
+                age = now - started
+                if age > SUBAGENT_TIMEOUT_SECONDS:
+                    already_warned = tdata.get("timeout_warned", False)
+                    if not already_warned:
+                        log.warning("Subagent %s has been running for %.0f minutes with no result", tid, age / 60)
+                        warn_feed = f"system:timeout:{tid}"
+                        feeds[warn_feed] = {"group_id": None, "messages": [{
+                            "sender": "system",
+                            "text": f"subagent {tid} has been running for {age/60:.0f} minutes with no result — may be hung. check usage or cancel.",
+                            "timestamp": datetime.now().strftime("%H:%M"),
+                        }], "unread_count": 1}
+                        unread_feed_ids.add(warn_feed)
+                        _save_feeds()
+                        _usage["tasks"][tid]["timeout_warned"] = True
+                        _save_usage()
+                        asyncio.ensure_future(wake_loop())
+    asyncio.ensure_future(subagent_watchdog())
 
     # Run the TCP listener (runs forever)
     await tcp_listener()
