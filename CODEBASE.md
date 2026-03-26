@@ -77,6 +77,9 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 - ANTHROPIC_API_KEY in .env is COMMENTED OUT — it's for the looper only
 - Looper reads key from ~/looper.env
 
+## Known Edge Cases
+- **Midnight looper span**: if a looper session starts before midnight and runs past it, the API spend appears across two daily memory logs but only one dream consolidation processes it. `looper_spend_today` in usage.json is still accurate (single counter), but the daily log narrative may be split. Not a bug — just worth knowing.
+
 ## Dream (3am America/Chicago)
 Fires via cron. Match should NOT schedule it manually. Match handles:
 1. Read today's daily log → write summary to summaries/
