@@ -1241,15 +1241,18 @@ async def subagent_loop(sender_id: str, group_id: str | None,
             # Check delta limits after each iteration
             _violation = _check_task_limits(task_id)
             if _violation:
-                # If match-spark safe_push exists, commit any in-progress work before kill
+                # Run safe_push for any known repos before kill — commits in-progress work
                 import subprocess as _ksp
-                _spush = os.path.expanduser("~/match-spark/scripts/safe_push.sh")
-                if os.path.exists(_spush):
-                    try:
-                        _ksp.run([_spush, "autosave before kill"], capture_output=True, timeout=30)
-                        log.info("Subagent %s: safe_push ran before kill", task_id)
-                    except Exception as _spe:
-                        log.warning("Subagent %s: safe_push failed: %s", task_id, _spe)
+                for _spush in [
+                    os.path.expanduser("~/cleo/scripts/safe_push.sh"),
+                    os.path.expanduser("~/match-spark/scripts/safe_push.sh"),
+                ]:
+                    if os.path.exists(_spush):
+                        try:
+                            _ksp.run([_spush, "autosave before kill"], capture_output=True, timeout=30)
+                            log.info("Subagent %s: safe_push ran before kill: %s", task_id, _spush)
+                        except Exception as _spe:
+                            log.warning("Subagent %s: safe_push failed: %s", task_id, _spe)
                 log.warning("Subagent %s killed: %s", task_id, _violation["msg"])
                 # Clean up task entry
                 _usage.get("tasks", {}).pop(task_id, None)
