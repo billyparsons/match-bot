@@ -384,7 +384,7 @@ def _update_rate_limits(headers) -> None:
 MAX_MESSAGE_AGE_SECONDS = 300  # 5 minutes
 
 # --- Agentic loop constants ---
-MAX_AGENTIC_ITERATIONS = 50  # safety limit on tool loops
+MAX_AGENTIC_ITERATIONS = 50  # safety limit on wake_loop tool iterations
 MAX_TOKENS = 16384  # max output tokens per API call
 _last_input_tokens: int = 0  # updated after each successful API call
 
@@ -500,7 +500,7 @@ def _check_limits() -> dict | None:
     return None
 
 # --- Subagent constants ---
-MAX_SUBAGENT_ITERATIONS = 50
+MAX_SUBAGENT_ITERATIONS = 50  # safety limit on subagent_loop tool iterations (separate from wake_loop)
 MAX_CONCURRENT_SUBAGENTS = 3  # per person
 active_subagents: dict[str, list[asyncio.Task]] = defaultdict(list)
 
