@@ -57,6 +57,7 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 - Limits are **delta-based** (per-task): configurable in `usage.json` under `limits`: `oauth_delta` (fraction of 5h window, default 0.15 = 15%), `api_delta` (dollars, default $1.00)
 - Each subagent task snapshots `baseline_oauth_5h` and `baseline_api_cost` at start; limits measured from baseline
 - Passive kill: if a subagent exceeds its delta limits mid-iteration, it is killed and a `system:kill:<task_id>` feed is injected to notify Match
+- **Safe push on kill**: before killing a subagent, gateway checks for `~/match-spark/scripts/safe_push.sh` — if it exists, runs it with `"autosave before kill"` to commit any in-progress website work. Timeout 30s. Failure is logged as warning but does not block the kill.
 - **Looper 80% warning**: when a looper hits 80% of its `api_delta` budget, a `system:warn:<task_id>` feed is injected (fires once per session via `.warned80_<task_id>` flag file). Flag cleared on normal session completion. Gives Match a chance to raise the limit before the kill.
 - OAuth utilization fed in from `_update_rate_limits()` (parsed from response headers)
 
