@@ -1247,6 +1247,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
                 for _spush in [
                     os.path.expanduser("~/cleo/scripts/safe_push.sh"),
                     os.path.expanduser("~/match-spark/scripts/safe_push.sh"),
+                    os.path.expanduser("~/murmur-looper/scripts/safe_push.sh"),
                 ]:
                     if os.path.exists(_spush):
                         try:
@@ -1545,14 +1546,16 @@ async def wake_loop() -> None:
     }
     START_LOOPER_TOOL = {
         "name": "start_looper",
-        "description": "Launch a game design looper session in the background. Use when Billy asks to start/run a looper or game design session. Runs preflight checks automatically before launch. Always use this instead of exec_command for looper runs. If Billy specifies a budget (e.g. 'api $2'), pass it as api_delta.",
+        "description": "Launch a looper session in the background. Handles both game design loopers (backprop) and campaign loopers (murmur). Always use this instead of exec_command. If Billy specifies a budget (e.g. 'api $2'), pass it as api_delta. For murmur: pass game='murmur', campaign name, players count. For backprop: pass game='backprop', loops, optional note.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "game": {"type": "string", "description": "Game name (e.g. backprop)"},
-                "loops": {"type": "integer", "description": "Number of loops to run (default 1)", "default": 1},
-                "note": {"type": "string", "description": "Optional note to inject into the session"},
-                "api_delta": {"type": "number", "description": "API budget limit in dollars (e.g. 2.0). Sets the kill threshold for this session."}
+                "game": {"type": "string", "description": "Looper type: 'backprop' or 'murmur'"},
+                "loops": {"type": "integer", "description": "Number of loops or turns to run (default 1)", "default": 1},
+                "note": {"type": "string", "description": "Optional note to inject (backprop only)"},
+                "api_delta": {"type": "number", "description": "API budget limit in dollars (e.g. 2.0). Sets the kill threshold for this session."},
+                "campaign": {"type": "string", "description": "Campaign name for murmur looper (e.g. infinite-costco)", "default": "infinite-costco"},
+                "players": {"type": "integer", "description": "Number of AI players for murmur looper (1-4, default 3)", "default": 3}
             },
             "required": ["game"]
         },
@@ -1847,6 +1850,11 @@ async def wake_loop() -> None:
                     wake_log.append(f"### Tool: set_usage_limit\nResult: {_confirm}")
                     continue
                 if block.name == "start_looper":
+                    # Lookup table — add new loopers here
+                    _LOOPER_SCRIPTS = {
+                        "backprop": "/home/billy/cleo/game_design_session.py",
+                        "murmur":   "/home/billy/murmur-looper/scripts/looper.py",
+                    }
                     _game = block.input.get("game", "")
                     _loops = block.input.get("loops", 1)
                     _note = block.input.get("note", "")
@@ -1888,7 +1896,21 @@ async def wake_loop() -> None:
                     _sess_num = max(_nums) + 1 if _nums else 1
                     _log_file = f"{_game_dir}/session_{_sess_num:03d}_looper.log"
                     _note_arg = f'--note "{_note}"' if _note else ""
-                    _cmd = f"nohup /home/billy/cleo/venv/bin/python /home/billy/cleo/game_design_session.py --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
+                    _looper_script = _LOOPER_SCRIPTS.get(_game)
+                    if not _looper_script:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"unknown game: {_game}. known games: {list(_LOOPER_SCRIPTS.keys())}",
+                        })
+                        continue
+                    # Build args based on looper type
+                    if _game == "murmur":
+                        _campaign = block.input.get("campaign", "infinite-costco")
+                        _players = block.input.get("players", 3)
+                        _cmd = f"nohup /home/billy/cleo/venv/bin/python {_looper_script} --campaign {_campaign} --turns {_loops} --players {_players} --api-delta {float(_api_delta or 1.00)} > {_log_file} 2>&1 & echo $!"
+                    else:
+                        _cmd = f"nohup /home/billy/cleo/venv/bin/python {_looper_script} --game {_game} --loops {_loops} {_note_arg} > {_log_file} 2>&1 & echo $!"
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
                     # Store PID in usage.json
