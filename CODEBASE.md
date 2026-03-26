@@ -41,7 +41,7 @@ Built on Sean Gibat's open-source Cleo framework. Codebase lives at ~/cleo/.
 |----------|-------|---------|
 | MAX_CONSCIOUSNESS_MESSAGES | 20 | Max messages in rolling history |
 | MAX_FEED_MESSAGES | 6 | Max messages retained per feed thread |
-| MAX_TOKENS | 8192 | Max output tokens per API call |
+| MAX_TOKENS | 16384 | Max output tokens per API call |
 | MAX_AGENTIC_ITERATIONS | 50 | Safety limit on tool loops |
 | WAKE_DEBOUNCE_DM | 0 | Seconds to wait before waking for DMs |
 | WAKE_DEBOUNCE_GROUP | 3.5 | Seconds to wait before waking for group messages |
@@ -135,7 +135,7 @@ When Billy asks for a code change in plain English:
 2. Test if needed via exec_command
 3. Restart service if gateway.py or config files changed
 4. ~/cleo/scripts/commit.sh "description"
-5. Update CODEBASE.md and CHEATSHEET.md if constants or structure changed
+5. Update CODEBASE.md if constants or structure changed
 6. Confirm to Billy what was changed and pushed
 
 ## Looper Pipeline Functions (game_design_session.py)
@@ -153,7 +153,6 @@ Key functions in the looper's design session pipeline:
 After any significant code change is committed, Billy will text Match to update docs.
 Match should then update ALL of the following in one shot:
 - ~/cleo/CODEBASE.md — add/update the relevant section
-- ~/cleo/CHEATSHEET.md — update quick reference if needed
 - ~/.cleo/workspace/MEMORY.md — note the capability if Match needs to know about it
 Then run ~/cleo/scripts/commit.sh "update docs for [feature]" to push doc changes.
 
@@ -167,8 +166,7 @@ When Billy pushes to GitHub, Match is automatically notified via the `scheduled:
 4. Match wakes, reads the commit-notify feed, and decides what (if anything) to update in docs
 
 **Decision rule:** Not every commit needs doc updates.
-- Structural changes (new tools, new flows, new constants, new files) → update CODEBASE.md + CHEATSHEET.md + MEMORY.md as needed
-- Behavior changes Billy interacts with → update CHEATSHEET.md
+- Structural changes (new tools, new flows, new constants, new files) → update CODEBASE.md + MEMORY.md as needed
 - Typos, refactors, minor fixes → no doc update needed; tell Billy "nothing to document here"
 
 **SIGUSR1 handler location:** `gateway.py` in `main()`, after `_load_feeds()`, before `_load_consciousness()`
