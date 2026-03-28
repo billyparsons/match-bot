@@ -492,11 +492,27 @@ def _check_task_limits(task_id: str) -> dict | None:
     return None
 
 def _check_limits() -> dict | None:
-    """Check all active tasks for limit violations. Returns first violation or None."""
+    """Check all active tasks and loopers for limit violations. Returns first violation or None."""
     for task_id in list(_usage.get("tasks", {}).keys()):
         violation = _check_task_limits(task_id)
         if violation:
             return violation
+    # Also check running loopers against api_delta
+    api_delta = _usage.get("limits", {}).get("api_delta", 1.00)
+    looper_spend = _usage.get("api", {}).get("looper_spend_today", 0.0)
+    for game, linfo in list(_usage.get("loopers", {}).items()):
+        baseline = float(linfo.get("baseline_api_cost", 0.0))
+        spent = looper_spend - baseline
+        if spent >= api_delta:
+            return {
+                "type": "api_delta",
+                "task_id": f"looper:{game}",
+                "baseline": baseline,
+                "current": looper_spend,
+                "used": spent,
+                "limit": api_delta,
+                "msg": f"looper {game} spent ${spent:.4f} (limit: ${api_delta:.2f})"
+            }
     return None
 
 # --- Subagent constants ---
@@ -1931,7 +1947,7 @@ async def wake_loop() -> None:
                     _result = _sp.run(_cmd, shell=True, capture_output=True, text=True)
                     _pid = _result.stdout.strip()
                     # Store PID in usage.json
-                    _usage.setdefault("loopers", {})[_game] = {"pid": _pid, "log": _log_file, "loops": _loops}
+                    _usage.setdefault("loopers", {})[_game] = {"pid": _pid, "log": _log_file, "loops": _loops, "baseline_api_cost": float(_usage.get("api", {}).get("looper_spend_today", 0.0))}
                     _save_usage()
                     _preflight_summary = f"\npreflight: {_preflight_notes}" if _preflight_notes and _preflight_notes != "all clear" else ""
                     _looper_reply = f"looper started for {_game} ({_loops} loop(s)) — PID {_pid}{_preflight_summary}\nwatch: tail -f {_log_file}"
