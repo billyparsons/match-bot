@@ -1197,17 +1197,32 @@ async def subagent_loop(sender_id: str, group_id: str | None,
         first_msg += f"\n\nContext:\n{task_context}"
     history = [{"role": "user", "content": first_msg}]
 
-    # Build system as list with billing header (required for OAuth)
+    # Build system as list with billing header + cache_control on stable soul block
     system_prompt = [
         {"type": "text", "text": _compute_billing_header(first_msg)},
-        {"type": "text", "text": system_prompt_text},
+        {"type": "text", "text": system_prompt_text, "cache_control": {"type": "ephemeral"}},
     ]
 
     model = model_override or CONFIG.get("model", "claude-sonnet-4-6")
     final_summary = None
 
     try:
+        subagent_context_mgmt = {"edits": [{"type": "compact_20260112", "trigger": {"type": "input_tokens", "value": 90000}}, {"type": "clear_tool_uses_20250919", "trigger": {"type": "input_tokens", "value": 60000}, "keep": {"type": "tool_uses", "value": 5}, "clear_at_least": {"type": "input_tokens", "value": 15000}}]}
+
         for iteration in range(1, MAX_SUBAGENT_ITERATIONS + 1):
+            # Tag last user message for cache_control
+            for msg in history:
+                if msg["role"] == "user" and isinstance(msg.get("content"), list):
+                    for block in msg["content"]:
+                        if isinstance(block, dict):
+                            block.pop("cache_control", None)
+            for msg in reversed(history):
+                if msg["role"] == "user":
+                    if isinstance(msg["content"], str):
+                        msg["content"] = [{"type": "text", "text": msg["content"], "cache_control": {"type": "ephemeral"}}]
+                    elif isinstance(msg["content"], list) and msg["content"]:
+                        msg["content"][-1]["cache_control"] = {"type": "ephemeral"}
+                    break
             try:
                 _raw = await api_client.messages.with_raw_response.create(
                     model=model,
@@ -1215,6 +1230,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
                     system=system_prompt,
                     messages=history,
                     tools=SUBAGENT_TOOL_DEFINITIONS,
+                    extra_body={"context_management": subagent_context_mgmt},
                 )
                 response = _raw.parse()
                 _update_rate_limits(_raw.headers)
@@ -1228,6 +1244,7 @@ async def subagent_loop(sender_id: str, group_id: str | None,
                         system=system_prompt,
                         messages=history,
                         tools=SUBAGENT_TOOL_DEFINITIONS,
+                        extra_body={"context_management": subagent_context_mgmt},
                     )
                     response = _raw.parse()
                     _update_rate_limits(_raw.headers)

@@ -289,8 +289,8 @@ TOOL_DEFINITIONS = [
                 },
                 "soul": {
                     "type": "string",
-                    "enum": ["engineer", "researcher", "consolidator", "planner"],
-                    "description": "Subagent specialization. 'engineer' (default) for coding/building, 'researcher' for web research/synthesis, 'consolidator' for memory/log processing, 'planner' for technical planning.",
+                    "enum": ["engineer", "researcher", "consolidator", "planner", "game_designer"],
+                    "description": "Subagent specialization. 'engineer' (default) for coding/building, 'researcher' for web research/synthesis, 'consolidator' for memory/log processing, 'planner' for technical planning, 'game_designer' for game design and rules work.",
                 },
             },
             "required": ["task"],
@@ -309,7 +309,7 @@ TOOL_DEFINITIONS = [
 
 
 # Tools excluded from subagent use (no recursion, no messaging, no admin)
-_SUBAGENT_EXCLUDED_TOOLS = {"delegate_task", "send_message", "send_reaction", "send_poll", "generate_image", "schedule_reminder", "check_quota"}
+_SUBAGENT_EXCLUDED_TOOLS = {"delegate_task", "send_message", "send_reaction", "send_poll", "vote_poll", "generate_image", "schedule_reminder", "check_quota"}
 
 SUBAGENT_TOOL_DEFINITIONS = [
     t for t in TOOL_DEFINITIONS if t["name"] not in _SUBAGENT_EXCLUDED_TOOLS
@@ -713,8 +713,8 @@ def web_fetch(url: str) -> str:
         text = re.sub(r"<[^>]+>", " ", resp.text)
         # Collapse whitespace
         text = re.sub(r"\s+", " ", text).strip()
-        if len(text) > 8000:
-            text = text[:8000] + "\n... [truncated]"
+        if len(text) > 50000:
+            text = text[:50000] + "\n... [truncated]"
         return text
     except Exception as e:
         return f"Error fetching URL: {e}"
@@ -1260,7 +1260,7 @@ def describe_image(image_path: str) -> str | list:
         {"type": "image", "source": {"type": "base64", "media_type": mime, "data": image_b64}},
     ]
 
-def read_daily_log(date_str: str | None = None, offset: int = 0, max_chars: int = 8000) -> str:
+def read_daily_log(date_str: str | None = None, offset: int = 0, max_chars: int = 50000) -> str:
     """Read a comprehensive daily log file, with chunking support."""
     from datetime import date
     if not date_str:
