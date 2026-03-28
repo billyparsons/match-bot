@@ -265,11 +265,12 @@ TOOL_DEFINITIONS = [
             "Delegate a complex task to a background subagent. The subagent runs "
             "autonomously with its own context and tools (exec_command, read_file, "
             "edit_file, write_file, grep_search, find_files, web_search, web_fetch, "
-            "memory_search), then messages the "
-            "user directly when done. Use this for tasks that require multiple tool "
-            "calls (research, file operations, long commands) so you can continue "
-            "responding to the user immediately. The subagent cannot see your "
-            "conversation history — include all necessary context in the task description."
+            "memory_search), then reports back when done. Use for tasks requiring "
+            "multiple tool calls or significant time. The subagent cannot see your "
+            "conversation history — include all necessary context in the task description. "
+            "Soul routing: engineer=code/build/fix, researcher=web research/3+ searches, "
+            "consolidator=memory logs/MEMORY.md pruning, planner=architecture/design decisions "
+            "before building, game_designer=Backprop rules/Murmur session design/game analysis."
         ),
         "input_schema": {
             "type": "object",
