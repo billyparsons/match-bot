@@ -18,7 +18,7 @@ echo "Pushed to GitHub"
 # Keywords that indicate Match should be told: new tool, new feature, changed behavior
 MSG="${1:-update}"
 if echo "$MSG" | grep -qiE "feat:|new tool|new feature|add.*tool|tool.*add|behavior|default|workflow|breaking"; then
-    /home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "commit: \"$MSG\" — this looks like a user-facing change. update CODEBASE.md if needed. text me when done or if nothing needed."
+    /home/billy/cleo/venv/bin/python ~/cleo/scripts/notify_match.py "commit: \"$MSG\" — this looks like a user-facing change. update ~/.cleo/workspace/CODEBASE.md if needed. text me when done or if nothing needed."
 else
     # Still send SIGUSR1 so Match knows the commit happened, but no feed injection
     PID=$(pgrep -f gateway.py | head -1)
