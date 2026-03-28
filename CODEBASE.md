@@ -114,10 +114,16 @@ send_reaction, send_poll, generate_image, describe_image, schedule_reminder,
 check_quota, restart_self, check_usage, set_usage_limit,
 advance_game, expand_game
 
+**web_fetch**: truncates at **50,000 chars** (raised from 8,000).
+**vote_poll**: excluded from subagent tool set (added to `_SUBAGENT_EXCLUDED_TOOLS`).
+**delegate_task souls**: engineer, researcher, consolidator, planner, **game_designer** (new — for game design and rules work).
+
 ## Subagent System
 - `delegate_task` launches background subagents with their own isolated conversation
-- Subagent souls loaded from `~/.cleo/workspace/subagent_souls/` (engineer.md, researcher.md, consolidator.md)
+- Subagent souls loaded from `~/.cleo/workspace/subagent_souls/` (engineer.md, researcher.md, consolidator.md, game_designer.md)
 - Billing header is injected into subagent system prompts (same OAuth fix as main loop)
+- **Cache tagging**: system prompt soul block tagged with `cache_control: ephemeral`. Last user message in history is tagged each iteration (old tags cleared first) to maximize prompt cache hits across long subagent runs.
+- **Context management**: subagent API calls pass `extra_body={"context_management": {...}}` with two triggers: `compact_20260112` fires at 90k input tokens (summarizes context); `clear_tool_uses_20250919` fires at 60k tokens (clears old tool uses, keeps last 5, must clear ≥15k tokens). Prevents runaway context growth on long tasks.
 - Results injected as `subagent:<task_id>` feed → wakes main loop for reporting
 - `cancel_tasks` tool cancels all running asyncio subagent tasks (dynamically injected per wake)
 - **Subagent timeout watchdog**: if a subagent hasn't completed within 45 minutes, gateway injects a `system:timeout:<task_id>` feed to warn Match. Allows Match to investigate or cancel hung tasks before they idle indefinitely.
