@@ -181,7 +181,7 @@ def _looper_usage_done(task_id):
 SESSIONS_DIR = Path.home() / "game-sessions"
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 600           # default — agents are prompted to stay under 300 words
-MAX_TOKENS_RATIFY = 1200   # ratification doc — agents prompted to stay under 500 words
+MAX_TOKENS_RATIFY = 4000   # ratification doc — agents prompted to stay under 500 words
 MAX_TOKENS_MONITOR = 1000  # monitor JSON output
 MAX_RATIFICATION_RETRIES = 2
 
