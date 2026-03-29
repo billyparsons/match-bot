@@ -1360,6 +1360,7 @@ def run_session(game, loops, note=None, phase_override=None, do_advance=False):
             if new_doc and new_doc != current_doc:
                 print(f"[SEED] Updating seed with scribe output despite non-approval.")
                 seed_file.write_text(new_doc)
+                final_doc = new_doc  # prevent session-end write from reverting to original seed
 
         save_state(game, state)
 
