@@ -869,7 +869,7 @@ def run_ratification(client, loop_num, knizia_pos, thematist_pos, current_doc,
                 "Designers must explicitly state rules covering these fields next loop."
             )
             print("[RATIFICATION] Gate failed after max retries. Issuing directive.")
-            return None, directive
+            return joint_doc, directive  # return best scribe output even on gate failure
 
         missing_list = "\n".join("  " + m["label"] + ": " + m["reason"] for m in missing)
         print(f"\n[RATIFICATION] Attempt {attempt + 1} failed. {len(missing)} gap(s). Returning to designers.")
