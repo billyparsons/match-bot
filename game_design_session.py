@@ -705,8 +705,10 @@ Output ONLY this JSON:
   "patched_doc": null
 }}"""
 
+    print(f"[COMPLETENESS] Doc sent to monitor: {len(doc)} chars | starts: {repr(doc[:120])} | ends: ...{repr(doc[-120:])}")
     response = call_agent(client, "monitor", prompt, tokens,
                           max_tokens=MAX_TOKENS_MONITOR, task_id=task_id)
+    print(f"[COMPLETENESS] Monitor raw response ({len(response)} chars): {response[:300]}")
     data = parse_json_response(response)
 
     if data is None:
@@ -826,6 +828,7 @@ def run_scribe(client, current_doc, agreed_rules, transcript_lines, tokens, task
     result = call_agent(client, "scribe", prompt, tokens,
                         max_tokens=MAX_TOKENS_RATIFY, task_id=task_id)
     transcript_lines.append(f"\n[SCRIBE OUTPUT]\n{result}")
+    print(f"[SCRIBE] Output: {len(result)} chars | ends: ...{repr(result[-80:])}")
     print("[SCRIBE] Rulebook updated. ✓")
     return result
 
